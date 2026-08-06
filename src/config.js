@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
-function mergeDeep(base, override) {
+export function mergeDeep(base, override) {
   if (!override || typeof override !== 'object' || Array.isArray(override)) return base;
   const result = { ...base };
   for (const [key, value] of Object.entries(override)) {
@@ -18,11 +18,12 @@ function mergeDeep(base, override) {
   return result;
 }
 
-export function loadConfig() {
-  const examplePath = path.join(projectRoot, 'config.example.json');
-  const configPath = process.env.TRAFFIC_MAP_CONFIG
+export function loadConfig(options = {}) {
+  const root = options.projectRoot || projectRoot;
+  const examplePath = options.examplePath || path.join(root, 'config.example.json');
+  const configPath = options.configPath || (process.env.TRAFFIC_MAP_CONFIG
     ? path.resolve(process.env.TRAFFIC_MAP_CONFIG)
-    : path.join(projectRoot, 'config.json');
+    : path.join(root, 'config.json'));
 
   const defaults = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
   let config = defaults;
@@ -33,8 +34,8 @@ export function loadConfig() {
     console.warn(`[config] ${configPath} not found; using config.example.json`);
   }
 
-  config.__projectRoot = projectRoot;
-  config.geoip.cacheFile = path.resolve(projectRoot, config.geoip.cacheFile);
+  config.__projectRoot = root;
+  config.geoip.cacheFile = path.resolve(root, config.geoip.cacheFile);
 
   const port = Number(config.monitor.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -46,6 +47,13 @@ export function loadConfig() {
     const n = Number(config.dashboard[key]);
     if (!Number.isFinite(n) || n <= 0) throw new Error(`dashboard.${key} must be greater than zero`);
     config.dashboard[key] = n;
+  }
+
+  if (!config.dashboard?.tls?.certificate) {
+    throw new Error('dashboard.tls.certificate must be configured');
+  }
+  if (!config.dashboard?.tls?.privateKey) {
+    throw new Error('dashboard.tls.privateKey must be configured');
   }
 
   return config;

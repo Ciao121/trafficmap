@@ -47,7 +47,12 @@ export function maskIp(ip) {
     return `${parts[0]}.${parts[1]}.${parts[2]}.x`;
   }
   if (net.isIPv6(value)) {
-    const parts = value.split(':');
+    const [left = '', right = ''] = value.split('::');
+    const leftParts = left ? left.split(':') : [];
+    const rightParts = right ? right.split(':') : [];
+    const parts = value.includes('::')
+      ? [...leftParts, ...Array(8 - leftParts.length - rightParts.length).fill('0'), ...rightParts]
+      : leftParts;
     return `${parts.slice(0, 4).join(':')}::/64`;
   }
   return value;

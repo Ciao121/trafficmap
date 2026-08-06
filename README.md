@@ -1,210 +1,81 @@
-# Traffic Map Monitor
+# ServerMap
 
-Mappa full-page che osserva passivamente il traffico TCP su una singola porta. Non usa proxy e non legge i log di Nginx, Apache o dell'applicazione.
+ServerMap osserva passivamente il traffico TCP di un server e lo rappresenta su una dashboard geografica. Conta payload TCP, pacchetti e attività recente per indirizzo remoto; non è un proxy e non legge i log applicativi.
 
-## Cosa misura
+## Comportamento effettivo
 
-- byte TCP client → server;
-- byte TCP server → client;
-- pacchetti nelle due direzioni;
-- volume recente e totale per IP;
-- attività negli ultimi secondi;
-- posizione approssimativa tramite GeoIP;
-- cache GeoIP in memoria e su file.
+Il processo Node.js avvia un server HTTPS e un endpoint WebSocket sul percorso `/ws`. Le richieste HTTPS ordinarie ricevono `404`: `index.html`, `app.js`, `websocket-url.js` e `styles.css` sono asset statici separati e devono essere pubblicati da un web server statico. Il frontend può essere ospitato nella root o in qualsiasi sottocartella e si collega direttamente alla porta dell'agent: non è necessario un reverse proxy WebSocket né una riscrittura del percorso.
 
-La dimensione dei marker dipende dal traffico nella finestra recente. La pulsazione dipende dal traffico negli ultimi secondi. È quindi adatto anche a WebSocket, HTTP keep-alive, HTTP/2 e protocolli TCP persistenti.
-
-> I byte conteggiati sono il payload TCP riportato da `tcpdump`, non l'intera dimensione Ethernet/IP. ACK senza payload valgono zero byte.
+La cattura considera tutte le porte TCP; ogni dashboard seleziona la porta da visualizzare. I byte sono il payload indicato da `tcpdump` (`tcp N`, con fallback `length N`), non la dimensione Ethernet/IP. Gli ACK senza payload sono ignorati. La direzione è determinata confrontando gli endpoint con gli indirizzi locali del server.
 
 ## Requisiti
 
-- Linux;
+- Linux per la cattura reale;
 - Node.js 20 o superiore;
-- `tcpdump`;
-- permessi `CAP_NET_RAW` e `CAP_NET_ADMIN` oppure avvio come root;
-- accesso a Internet del browser per Leaflet/OpenStreetMap CDN;
-- accesso del server al servizio GeoIP configurato.
+- `tcpdump` e i permessi necessari alla cattura;
+- accesso del server al servizio GeoIP configurato;
+- accesso del browser ai CDN Leaflet/OpenStreetMap presenti nel frontend.
 
-## Avvio rapido manuale
+## Installazione manuale
+
+Nella directory della repository:
 
 ```bash
-sudo apt update
-sudo apt install -y tcpdump
+npm install
 cp config.example.json config.json
-npm install
-sudo node src/server.js
 ```
 
-Per la pubblicazione usare Nginx o Apache davanti al servizio locale `127.0.0.1:3100`, come descritto sotto.
-
-Per evitare di eseguire Node come root, usare il servizio systemd incluso oppure assegnare le capability al processo appropriato. Il servizio systemd è la soluzione consigliata.
-
-## Installazione systemd
-
-```bash
-npm install
-sudo ./install.sh
-```
-
-File principali:
-
-```text
-/opt/traffic-map-monitor/config.json
-/opt/traffic-map-monitor/data/geoip-cache.json
-/etc/systemd/system/traffic-map-monitor.service
-```
-
-Comandi:
-
-```bash
-sudo systemctl status traffic-map-monitor
-sudo journalctl -u traffic-map-monitor -f
-sudo systemctl restart traffic-map-monitor
-```
+Su Windows il file può essere copiato manualmente. `config.json` è locale, è escluso da Git e non viene rigenerato o sovrascritto dagli aggiornamenti.
 
 ## Configurazione
 
-Modificare `config.json`.
+Modificare il proprio `config.json`. `monitor.port` deve essere un intero tra 1 e 65535; gli intervalli temporali della dashboard devono essere positivi. La cache GeoIP è risolta rispetto alla root del progetto.
 
-### Porta e interfaccia
-
-```json
-"monitor": {
-  "interface": "any",
-  "port": 443,
-  "protocol": "tcp",
-  "tcpdumpPath": "/usr/bin/tcpdump",
-  "sudo": false
-}
-```
-
-`interface: "any"` funziona bene nella maggior parte dei server Linux. Per limitare la cattura usare, ad esempio, `eth0`.
-
-### Posizione del server
-
-È preferibile impostarla manualmente:
+TLS è obbligatorio:
 
 ```json
-"server": {
-  "name": "Server Milano",
-  "latitude": 45.4642,
-  "longitude": 9.1900,
-  "publicIp": "",
-  "autoLocate": false
+"tls": {
+  "certificate": "/path/to/fullchain.pem",
+  "privateKey": "/path/to/privkey.pem"
 }
 ```
 
-Con `autoLocate: true`, l'agent tenta di ottenere la posizione pubblica una volta all'avvio.
+Entrambi i percorsi devono essere configurati e i file devono esistere. Non esistono percorsi TLS predefiniti legati a una specifica installazione.
 
-### Finestra temporale
+La costante `WEBSOCKET_PORT` all'inizio di `app.js` deve coincidere con `dashboard.listenPort` di `config.json` (valore di esempio: `3100`). La porta dell'agent deve essere raggiungibile direttamente dal browser. Se il frontend è aperto tramite HTTPS, il browser usa WSS e l'agent deve presentare su quella porta un certificato TLS valido per l'hostname della pagina; con una pagina HTTP viene usato WS.
 
-```json
-"dashboard": {
-  "recentWindowSeconds": 300,
-  "pulseWindowSeconds": 10
-}
+Le opzioni privacy possono escludere indirizzi privati/riservati o indirizzi espliciti. Il mascheramento modifica solo l'indirizzo serializzato nello snapshot, non la chiave interna o la richiesta GeoIP.
+
+## Avvio e verifiche
+
+```bash
+npm start
 ```
 
-- `recentWindowSeconds`: determina la dimensione del marker;
-- `pulseWindowSeconds`: determina se il marker pulsa;
-- `inactiveAfterSeconds`: rende trasparente un IP inattivo;
-- `forgetAfterMinutes`: elimina gli IP vecchi dalla memoria.
+Test e controlli:
 
-### Privacy
-
-```json
-"privacy": {
-  "maskIp": false,
-  "excludePrivateIps": true,
-  "excludedIps": []
-}
+```bash
+npm test
+npm run verify
+npm run test:coverage
 ```
 
-Con `maskIp: true`, il browser riceve una versione mascherata dell'indirizzo. L'agent usa comunque l'IP completo soltanto per la geolocalizzazione e la cache locale.
+## Aggiornamento manuale
 
-## Pubblicazione web con percorsi relativi
-
-La dashboard usa esclusivamente percorsi relativi per CSS, JavaScript e WebSocket. Lo stesso pacchetto può quindi essere pubblicato:
-
-- nella root di un dominio: `https://monitor.example.com/`;
-- in una sottocartella: `https://example.com/traffic-map/`.
-
-Node.js resta accessibile soltanto localmente su `127.0.0.1:3100`. Nginx o Apache espongono l'interfaccia web.
-
-### Nginx nella root di un dominio
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:3100;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
+```bash
+git pull
+npm install
+npm run verify
 ```
 
-### Nginx in una sottocartella
-
-```nginx
-location = /traffic-map {
-    return 301 /traffic-map/;
-}
-
-location /traffic-map/ {
-    proxy_pass http://127.0.0.1:3100/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-La barra finale è necessaria nella URL della sottocartella. La regola di redirect la aggiunge automaticamente. `proxy_pass` termina con `/`, quindi Nginx rimuove il prefisso `/traffic-map/` prima di inoltrare la richiesta a Node.js. Anche il WebSocket relativo `./ws` viene inoltrato correttamente.
-
-### Apache nella root di un dominio
-
-Richiede `mod_proxy`, `mod_proxy_http` e `mod_proxy_wstunnel`.
-
-```apache
-ProxyPreserveHost On
-ProxyPass        /ws  ws://127.0.0.1:3100/ws
-ProxyPassReverse /ws  ws://127.0.0.1:3100/ws
-ProxyPass        /    http://127.0.0.1:3100/
-ProxyPassReverse /    http://127.0.0.1:3100/
-```
-
-### Apache in una sottocartella
-
-```apache
-RedirectMatch 301 ^/traffic-map$ /traffic-map/
-ProxyPreserveHost On
-ProxyPass        /traffic-map/ws  ws://127.0.0.1:3100/ws
-ProxyPassReverse /traffic-map/ws  ws://127.0.0.1:3100/ws
-ProxyPass        /traffic-map/    http://127.0.0.1:3100/
-ProxyPassReverse /traffic-map/    http://127.0.0.1:3100/
-```
+Il file `config.json` resta locale. Se la configurazione di esempio acquisisce nuove opzioni, queste vanno riportate manualmente nella configurazione locale quando necessarie.
 
 ## Limiti tecnici
 
-- non vede URL, metodi HTTP o codici di risposta;
+- non vede URL, metodi HTTP, codici di risposta o richieste applicative;
 - non decifra HTTPS;
-- non conta richieste applicative;
-- misura quantità di payload TCP per direzione;
-- una VPN, un reverse proxy o un load balancer esterno può far apparire l'IP del proxy invece di quello dell'utente finale;
-- GeoIP è approssimativo.
-
-## Verifica della cattura
-
-Prima di avviare l'applicazione:
-
-```bash
-sudo tcpdump -i any -n -q -tt "tcp port 443"
-```
-
-Dovrebbero apparire righe contenenti `length N` quando passa payload TCP.
+- misura payload TCP, non il traffico complessivo a livello di rete;
+- proxy applicativi, VPN o bilanciatori possono nascondere l'indirizzo del client finale;
+- la geolocalizzazione IP è approssimativa e dipende dal provider configurato;
+- il frontend non è servito direttamente dal processo Node.js;
+- la dashboard dipende da risorse frontend esterne e l'agent GeoIP richiede rete in uso reale.

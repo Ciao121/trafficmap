@@ -1,3 +1,10 @@
+import {
+  buildWebSocketUrl
+} from './websocket-url.js';
+
+/* Deve coincidere con dashboard.listenPort di config.json. */
+const WEBSOCKET_PORT = 3100;
+
 const ALLOWED_ACTIVITY_WINDOWS = new Set([
   5,
   10,
@@ -2525,7 +2532,16 @@ function connect() {
 
   socket =
     new WebSocket(
-      'wss://spadacenta.com:3100/ws'
+      buildWebSocketUrl({
+        protocol:
+          window.location.protocol,
+
+        hostname:
+          window.location.hostname,
+
+        port:
+          WEBSOCKET_PORT
+      })
     );
 
   socket.addEventListener(

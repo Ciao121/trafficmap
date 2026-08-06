@@ -28,7 +28,7 @@ function normalizeIp(ip) {
   return normalized;
 }
 
-function getLocalAddresses() {
+export function getLocalAddresses() {
   const addresses =
     new Set([
       '127.0.0.1',
@@ -60,7 +60,7 @@ function getLocalAddresses() {
   return addresses;
 }
 
-function parseEndpoint(value) {
+export function parseEndpoint(value) {
   const cleaned =
     String(value || '')
       .trim()
@@ -99,7 +99,7 @@ function parseEndpoint(value) {
   };
 }
 
-function extractPayloadBytes(line) {
+export function extractPayloadBytes(line) {
   const tcpMatch =
     line.match(/\btcp\s+(\d+)\b/i);
 
@@ -117,7 +117,7 @@ function extractPayloadBytes(line) {
   return 0;
 }
 
-function parseTcpdumpLine(
+export function parseTcpdumpLine(
   line,
   localAddresses
 ) {
@@ -146,7 +146,7 @@ function parseTcpdumpLine(
 
   const destinationEndpointText =
     destinationPart
-      .split(':', 1)[0]
+      .split(/:\s/, 1)[0]
       .trim();
 
   const source =

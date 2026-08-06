@@ -14,7 +14,11 @@
     "inactiveAfterSeconds": 60,
     "forgetAfterMinutes": 1440,
     "recentWindowSeconds": 300,
-    "pulseWindowSeconds": 10
+    "pulseWindowSeconds": 10,
+    "tls": {
+      "certificate": "/path/to/fullchain.pem",
+      "privateKey": "/path/to/privkey.pem"
+    }
   },
   "server": {
     "name": "My server",

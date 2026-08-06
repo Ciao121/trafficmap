@@ -27,16 +27,15 @@ import {
   TcpdumpMonitor
 } from './tcpdump-monitor.js';
 
-const ALLOWED_ACTIVITY_WINDOWS =
-  new Set([
-    5,
-    10,
-    30,
-    60
-  ]);
-
-const DEFAULT_ACTIVITY_WINDOW = 5;
-const DEFAULT_MONITORED_PORT = 443;
+import {
+  DEFAULT_ACTIVITY_WINDOW,
+  DEFAULT_MONITORED_PORT,
+  normalizeTimestamp,
+  sendJson as serializeAndSendJson,
+  shouldRecordIp,
+  validateActivityWindow,
+  validatePort
+} from './protocol.js';
 
 const MONITOR_STOP_GRACE_MS = 5000;
 
@@ -44,12 +43,10 @@ const config =
   loadConfig();
 
 const certificatePath =
-  config.dashboard?.tls?.certificate ||
-  '/etc/letsencrypt/live/spadacenta.com/fullchain.pem';
+  config.dashboard.tls.certificate;
 
 const privateKeyPath =
-  config.dashboard?.tls?.privateKey ||
-  '/etc/letsencrypt/live/spadacenta.com/privkey.pem';
+  config.dashboard.tls.privateKey;
 
 if (
   !fs.existsSync(
@@ -150,82 +147,11 @@ function queueLifecycleTransition(
   return lifecycleTransition;
 }
 
-function validateActivityWindow(value) {
-  const seconds =
-    Number(value);
-
-  return ALLOWED_ACTIVITY_WINDOWS
-    .has(seconds)
-      ? seconds
-      : DEFAULT_ACTIVITY_WINDOW;
-}
-
-function validatePort(value) {
-  const port =
-    Number(value);
-
-  if (
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65535
-  ) {
-    return DEFAULT_MONITORED_PORT;
-  }
-
-  return port;
-}
-
-function normalizeTimestamp(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ''
-  ) {
-    return 0;
-  }
-
-  const numericValue =
-    Number(value);
-
-  if (
-    Number.isFinite(
-      numericValue
-    )
-  ) {
-    return numericValue <
-      10_000_000_000
-      ? numericValue * 1000
-      : numericValue;
-  }
-
-  const parsed =
-    Date.parse(value);
-
-  return Number.isFinite(parsed)
-    ? parsed
-    : 0;
-}
-
 function sendJson(
   socket,
   payload
 ) {
-  if (
-    socket.readyState !==
-    WebSocket.OPEN
-  ) {
-    return;
-  }
-
-  try {
-    socket.send(
-      JSON.stringify(payload)
-    );
-  } catch (error) {
-    console.error(
-      `[websocket] invio fallito: ${error.message}`
-    );
-  }
+  serializeAndSendJson(socket, payload, WebSocket.OPEN);
 }
 
 async function resolveServerInfo() {
@@ -415,17 +341,6 @@ async function resolveServerInfo() {
 
 const serverInfo =
   await resolveServerInfo();
-
-const excludedIps =
-  new Set(
-    (
-      config.privacy
-        .excludedIps ||
-      []
-    )
-      .map(normalizeIp)
-      .filter(Boolean)
-  );
 
 function buildFilteredSnapshot(
   state
@@ -704,17 +619,14 @@ const monitor =
         return;
       }
 
-      if (
-        excludedIps.has(ip)
-      ) {
-        return;
-      }
-
-      if (
-        config.privacy
-          .excludePrivateIps &&
-        isPrivateOrReserved(ip)
-      ) {
+      if (!shouldRecordIp(
+        ip,
+        {
+          ...config.privacy,
+          excludedIps: (config.privacy.excludedIps || []).map(normalizeIp)
+        },
+        isPrivateOrReserved
+      )) {
         return;
       }
 
@@ -1107,9 +1019,9 @@ httpsServer.listen(
   config.dashboard.listenHost,
   () => {
     console.log(
-      `[agent] wss://spadacenta.com:${
-        config.dashboard.listenPort
-      }/ws`
+      `[agent] WebSocket HTTPS in ascolto su ${
+        config.dashboard.listenHost
+      }:${config.dashboard.listenPort}/ws`
     );
 
     console.log(
