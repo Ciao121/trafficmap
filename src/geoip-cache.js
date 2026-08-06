@@ -42,7 +42,7 @@ export class GeoIpCache {
     try {
       const response = await fetch(url, {
         signal: controller.signal,
-        headers: { 'user-agent': 'traffic-map-monitor/1.0' }
+        headers: { 'user-agent': 'trafficmap/1.0' }
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();

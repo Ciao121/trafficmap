@@ -7,7 +7,7 @@
 
 ## Development Tool Neutrality
 
-- No versioned file may state or imply that the software was developed with an AI assistant, prompts, or similar tools.
+- No versioned file may state or imply which development tools were used to create the software.
 - Do not include references to the user's personal development process.
 - The README, changelog, code, comments, tests, configurations, documentation, and GitHub files must remain neutral regarding the tools used for development.
 - This file may contain generic operational instructions for a development agent, but it must not name specific assistants, vendors, or describe the origin of the software.

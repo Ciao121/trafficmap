@@ -1,37 +1,37 @@
-# ServerMap
+# TrafficMap
 
-ServerMap osserva passivamente il traffico TCP di un server e lo rappresenta su una dashboard geografica. Conta payload TCP, pacchetti e attività recente per indirizzo remoto; non è un proxy e non legge i log applicativi.
+TrafficMap passively observes a server's TCP traffic and displays it on a geographic dashboard. It counts TCP payload, packets, and recent activity per remote address; it is not a proxy and does not read application logs.
 
-## Comportamento effettivo
+## Actual behavior
 
-Il processo Node.js avvia un server HTTPS e un endpoint WebSocket sul percorso `/ws`. Le richieste HTTPS ordinarie ricevono `404`: `index.html`, `app.js`, `websocket-url.js` e `styles.css` sono asset statici separati e devono essere pubblicati da un web server statico. Il frontend può essere ospitato nella root o in qualsiasi sottocartella e si collega direttamente alla porta dell'agent: non è necessario un reverse proxy WebSocket né una riscrittura del percorso.
+The Node.js process starts an HTTPS server and a WebSocket endpoint at `/ws`. Ordinary HTTPS requests receive `404`: `index.html`, `app.js`, `websocket-url.js`, and `styles.css` are separate static assets that must be published by a static web server. The frontend can be hosted at the domain root or in any subdirectory and connects directly to the agent port; no WebSocket reverse proxy or path rewriting is required.
 
-La cattura considera tutte le porte TCP; ogni dashboard seleziona la porta da visualizzare. I byte sono il payload indicato da `tcpdump` (`tcp N`, con fallback `length N`), non la dimensione Ethernet/IP. Gli ACK senza payload sono ignorati. La direzione è determinata confrontando gli endpoint con gli indirizzi locali del server.
+Capture covers all TCP ports; each dashboard selects the port to display. Bytes represent the payload reported by `tcpdump` (`tcp N`, with `length N` as a fallback), not the Ethernet/IP size. ACK packets without payload are ignored. Direction is determined by comparing endpoints with the server's local addresses.
 
-## Requisiti
+## Requirements
 
-- Linux per la cattura reale;
-- Node.js 20 o superiore;
-- `tcpdump` e i permessi necessari alla cattura;
-- accesso del server al servizio GeoIP configurato;
-- accesso del browser ai CDN Leaflet/OpenStreetMap presenti nel frontend.
+- Linux for actual traffic capture;
+- Node.js 20 or later;
+- `tcpdump` and the permissions required for capture;
+- server access to the configured GeoIP service;
+- browser access to the Leaflet/OpenStreetMap CDNs used by the frontend.
 
-## Installazione manuale
+## Manual installation
 
-Nella directory della repository:
+In the repository directory:
 
 ```bash
 npm install
 cp config.example.json config.json
 ```
 
-Su Windows il file può essere copiato manualmente. `config.json` è locale, è escluso da Git e non viene rigenerato o sovrascritto dagli aggiornamenti.
+On Windows, the file can be copied manually. `config.json` is local, excluded from Git, and is not regenerated or overwritten by updates.
 
-## Configurazione
+## Configuration
 
-Modificare il proprio `config.json`. `monitor.port` deve essere un intero tra 1 e 65535; gli intervalli temporali della dashboard devono essere positivi. La cache GeoIP è risolta rispetto alla root del progetto.
+Edit the local `config.json`. `monitor.port` must be an integer between 1 and 65535; dashboard time intervals must be positive. The GeoIP cache path is resolved relative to the project root.
 
-TLS è obbligatorio:
+TLS is mandatory:
 
 ```json
 "tls": {
@@ -40,19 +40,19 @@ TLS è obbligatorio:
 }
 ```
 
-Entrambi i percorsi devono essere configurati e i file devono esistere. Non esistono percorsi TLS predefiniti legati a una specifica installazione.
+Both paths must be configured and both files must exist. There are no installation-specific default TLS paths.
 
-La costante `WEBSOCKET_PORT` all'inizio di `app.js` deve coincidere con `dashboard.listenPort` di `config.json` (valore di esempio: `3100`). La porta dell'agent deve essere raggiungibile direttamente dal browser. Se il frontend è aperto tramite HTTPS, il browser usa WSS e l'agent deve presentare su quella porta un certificato TLS valido per l'hostname della pagina; con una pagina HTTP viene usato WS.
+The `WEBSOCKET_PORT` constant at the beginning of `app.js` must match `dashboard.listenPort` in `config.json` (example value: `3100`). The agent port must be reachable directly from the browser. If the frontend is opened over HTTPS, the browser uses WSS and the agent must present a valid TLS certificate for the page hostname on that port; an HTTP page uses WS.
 
-Le opzioni privacy possono escludere indirizzi privati/riservati o indirizzi espliciti. Il mascheramento modifica solo l'indirizzo serializzato nello snapshot, non la chiave interna o la richiesta GeoIP.
+Privacy options can exclude private/reserved addresses or explicitly listed addresses. Masking changes only the address serialized in snapshots, not the internal key or GeoIP lookup.
 
-## Avvio e verifiche
+## Running and verification
 
 ```bash
 npm start
 ```
 
-Test e controlli:
+Tests and checks:
 
 ```bash
 npm test
@@ -60,7 +60,7 @@ npm run verify
 npm run test:coverage
 ```
 
-## Aggiornamento manuale
+## Manual updates
 
 ```bash
 git pull
@@ -68,14 +68,14 @@ npm install
 npm run verify
 ```
 
-Il file `config.json` resta locale. Se la configurazione di esempio acquisisce nuove opzioni, queste vanno riportate manualmente nella configurazione locale quando necessarie.
+The `config.json` file remains local. If the example configuration gains new options, copy them manually to the local configuration when needed.
 
-## Limiti tecnici
+## Technical limitations
 
-- non vede URL, metodi HTTP, codici di risposta o richieste applicative;
-- non decifra HTTPS;
-- misura payload TCP, non il traffico complessivo a livello di rete;
-- proxy applicativi, VPN o bilanciatori possono nascondere l'indirizzo del client finale;
-- la geolocalizzazione IP è approssimativa e dipende dal provider configurato;
-- il frontend non è servito direttamente dal processo Node.js;
-- la dashboard dipende da risorse frontend esterne e l'agent GeoIP richiede rete in uso reale.
+- does not inspect URLs, HTTP methods, response codes, or application requests;
+- does not decrypt HTTPS;
+- measures TCP payload rather than total network traffic;
+- application proxies, VPNs, or load balancers may hide the final client address;
+- IP geolocation is approximate and depends on the configured provider;
+- the frontend is not served directly by the Node.js process;
+- the dashboard depends on external frontend resources and the GeoIP agent requires network access during actual use.

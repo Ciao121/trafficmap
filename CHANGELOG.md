@@ -6,20 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Baseline documentata del monitor passivo TCP già esistente.
-- Suite iniziale permanente di regression test con il test runner di Node.js.
-- Controlli multipiattaforma di sintassi e coerenza della repository.
-- Workflow CI per Node.js 20 e 22.
-- Regole operative permanenti per le versioni future.
+- Documented baseline of the existing passive TCP monitor.
+- Initial permanent regression test suite using the Node.js test runner.
+- Cross-platform syntax and repository consistency checks.
+- CI workflow for Node.js 20 and 22.
+- Permanent operating rules for future versions.
 
 ### Changed
 
-- Configurazione di esempio completata con i percorsi TLS obbligatori.
-- Documentazione aggiornata in base al comportamento effettivo dell'agent HTTPS/WebSocket e degli asset statici separati.
-- Configurazione locale e cache GeoIP locale escluse da Git.
-- Corretta la costruzione dell'URL WebSocket: il frontend usa sempre l'hostname della pagina, la porta agent configurata e il percorso assoluto `/ws`, indipendentemente dalla sottocartella di pubblicazione.
+- Completed the example configuration with mandatory TLS paths.
+- Updated documentation to reflect the actual HTTPS/WebSocket agent behavior and separate static assets.
+- Excluded the local configuration and local GeoIP cache from Git.
+- Corrected WebSocket URL construction: the frontend always uses the page hostname, configured agent port, and absolute `/ws` path regardless of its hosting subdirectory.
+- Standardized product branding as TrafficMap across the interface, documentation, package metadata, logs, and tests.
 
 ### Removed
 
-- File di installazione automatica e configurazione systemd.
-- Fallback TLS e WebSocket specifici dell'installazione originaria.
+- Automatic installation files and systemd configuration.
+- Installation-specific TLS and WebSocket fallbacks.

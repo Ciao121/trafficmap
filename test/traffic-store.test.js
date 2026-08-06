@@ -10,7 +10,7 @@ const config = {
 const geo = { latitude: 1, longitude: 2, city: 'X', region: '', country: 'Y', countryCode: 'YY', isp: '', asn: '' };
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-test('crea client, aggrega byte, pacchetti e bucket per direzione', async () => {
+test('creates a client and aggregates bytes, packets, and buckets by direction', async () => {
   let calls = 0;
   const store = new TrafficStore(config, { lookup: async () => { calls += 1; return geo; } });
   const now = Date.now();
@@ -23,7 +23,7 @@ test('crea client, aggrega byte, pacchetti e bucket per direzione', async () => 
   assert.equal(client.buckets.size, 1);
 });
 
-test('snapshot aggrega finestra recente, pulsazione e payload principale', async () => {
+test('snapshot aggregates recent and pulse windows with the primary payload', async () => {
   const store = new TrafficStore(config, { lookup: async () => geo });
   const now = Date.now();
   await store.record('8.8.8.8', 'in', 5, 443, 'tcp', now - 20_000);
@@ -38,7 +38,7 @@ test('snapshot aggrega finestra recente, pulsazione e payload principale', async
   assert.equal(snapshot.config.monitoredPort, 443);
 });
 
-test('cleanup scade bucket vecchi, dimentica client vecchi e conserva validi', async () => {
+test('cleanup expires old buckets, forgets old clients, and retains valid clients', async () => {
   const store = new TrafficStore(config, { lookup: async () => geo });
   const now = Date.now();
   await store.record('8.8.8.8', 'in', 1, 443, 'tcp', now - 120_000);
@@ -48,7 +48,7 @@ test('cleanup scade bucket vecchi, dimentica client vecchi e conserva validi', a
   assert.equal([...store.clients.values()].some((client) => client.ip === '1.1.1.1'), true);
 });
 
-test('gestisce GeoIP positiva, negativa ed errore', async () => {
+test('handles positive, negative, and failed GeoIP lookups', async () => {
   const positive = new TrafficStore(config, { lookup: async () => geo });
   await positive.record('8.8.8.8', 'in', 1, 443); await flush();
   assert.equal([...positive.clients.values()][0].geo.latitude, 1);
@@ -61,7 +61,7 @@ test('gestisce GeoIP positiva, negativa ed errore', async () => {
   assert.equal([...failed.clients.values()][0].geoPending, false);
 });
 
-test('maschera snapshot senza cambiare chiave interna', async () => {
+test('masks snapshots without changing the internal key', async () => {
   const store = new TrafficStore({ ...config, privacy: { maskIp: true } }, { lookup: async () => geo });
   await store.record('8.8.8.8', 'in', 1, 443); await flush();
   const client = [...store.clients.values()][0];
@@ -69,7 +69,7 @@ test('maschera snapshot senza cambiare chiave interna', async () => {
   assert.equal(store.snapshot({}, 443).clients[0].ip, '8.8.8.x');
 });
 
-test('ignora porta o protocollo non validi', async () => {
+test('ignores invalid ports and protocols', async () => {
   const store = new TrafficStore(config, { lookup: async () => geo });
   await store.record('8.8.8.8', 'in', 1, 0);
   await store.record('8.8.8.8', 'in', 1, 443, 'udp');

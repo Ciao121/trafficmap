@@ -41,11 +41,11 @@ export class TrafficStore {
     this.geoIpCache = geoIpCache;
 
     /*
-     * Chiave:
+     * Key:
      *
-     * protocollo:portaLocale:ipRemoto
+     * protocol:localPort:remoteIp
      *
-     * Esempio:
+     * Example:
      *
      * tcp:443:1.2.3.4
      */

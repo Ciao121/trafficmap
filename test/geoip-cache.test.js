@@ -6,20 +6,20 @@ import path from 'node:path';
 import { GeoIpCache } from '../src/geoip-cache.js';
 
 function fixture(content) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'servermap-geo-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'trafficmap-geo-'));
   const file = path.join(root, 'nested', 'cache.json');
   if (content !== undefined) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); }
   return { file, config: { cacheFile: file, endpointTemplate: 'https://geo.invalid/{ip}', timeoutMs: 50, negativeCacheMinutes: 1 } };
 }
 
-test('carica file esistente, gestisce file assente e JSON invalido', () => {
+test('loads an existing file and handles missing files and invalid JSON', () => {
   let item = fixture(JSON.stringify({ '8.8.8.8': { latitude: 1 } }));
   assert.equal(new GeoIpCache(item.config).cache.size, 1);
   item = fixture(); assert.equal(new GeoIpCache(item.config).cache.size, 0);
   item = fixture('{'); assert.doesNotThrow(() => new GeoIpCache(item.config));
 });
 
-test('cache hit, negative cache e scadenza negativa', async () => {
+test('handles cache hits, negative cache, and negative expiration', async () => {
   const item = fixture(); const cache = new GeoIpCache(item.config);
   cache.cache.set('a', { latitude: 1 });
   assert.deepEqual(await cache.lookup('a'), { latitude: 1 });
@@ -30,14 +30,14 @@ test('cache hit, negative cache e scadenza negativa', async () => {
   assert.deepEqual(await cache.lookup('c'), { latitude: 2 });
 });
 
-test('deduplica richieste contemporanee', async () => {
+test('deduplicates concurrent requests', async () => {
   const item = fixture(); const cache = new GeoIpCache(item.config); let calls = 0;
   cache.fetchLookup = async () => { calls += 1; await new Promise((resolve) => setImmediate(resolve)); return { latitude: 1 }; };
   const [a, b] = await Promise.all([cache.lookup('8.8.8.8'), cache.lookup('8.8.8.8')]);
   assert.equal(calls, 1); assert.strictEqual(a, b);
 });
 
-test('fetch positiva, errore HTTP, payload invalido e timeout senza rete', async (t) => {
+test('handles successful fetches, HTTP errors, invalid payloads, and timeouts without network access', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   const item = fixture(); const cache = new GeoIpCache(item.config);
@@ -51,7 +51,7 @@ test('fetch positiva, errore HTTP, payload invalido e timeout senza rete', async
   assert.equal((await cache.fetchLookup('4.4.4.4')).error, 'timeout');
 });
 
-test('persist crea directory e file temporaneo atomico', () => {
+test('persist creates the directory and uses an atomic temporary file', () => {
   const item = fixture(); const cache = new GeoIpCache(item.config);
   cache.cache.set('8.8.8.8', { latitude: 1 }); cache.dirty = true; cache.persist();
   assert.equal(JSON.parse(fs.readFileSync(item.file, 'utf8'))['8.8.8.8'].latitude, 1);

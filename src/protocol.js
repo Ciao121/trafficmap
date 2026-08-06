@@ -32,7 +32,7 @@ export function sendJson(socket, payload, openState = 1, onError = console.error
     socket.send(JSON.stringify(payload));
     return true;
   } catch (error) {
-    onError(`[websocket] invio fallito: ${error.message}`);
+    onError(`[websocket] send failed: ${error.message}`);
     return false;
   }
 }

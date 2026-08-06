@@ -350,8 +350,8 @@ input {
 }
 
 /*
- * Marker che rappresenta più IP
- * con le stesse coordinate.
+ * Marker representing multiple IP addresses
+ * with the same coordinates.
  */
 .client-marker.group-marker {
   min-width: 20px;
@@ -390,8 +390,8 @@ input {
 }
 
 /*
- * Gruppo contenente il browser
- * che sta visualizzando la mappa.
+ * Group containing the browser
+ * currently viewing the map.
  */
 .client-marker.viewer-marker {
   min-width: 15px;

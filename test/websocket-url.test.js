@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildWebSocketUrl } from '../websocket-url.js';
 
-test('costruisce WSS dalla root HTTPS', () => {
+test('builds WSS from an HTTPS root page', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'https:',
@@ -15,19 +15,19 @@ test('costruisce WSS dalla root HTTPS', () => {
   );
 });
 
-test('la sottocartella non influenza percorso o porta WebSocket', () => {
+test('a subdirectory does not affect the WebSocket path or port', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'https:',
       hostname: 'example.com',
       port: 3100,
-      pathname: '/servermap/'
+      pathname: '/trafficmap/'
     }),
     'wss://example.com:3100/ws'
   );
 });
 
-test('costruisce WS da una pagina HTTP', () => {
+test('builds WS from an HTTP page', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'http:',
@@ -38,7 +38,7 @@ test('costruisce WS da una pagina HTTP', () => {
   );
 });
 
-test('supporta hostname IPv4', () => {
+test('supports IPv4 hostnames', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'https:',
@@ -49,7 +49,7 @@ test('supporta hostname IPv4', () => {
   );
 });
 
-test('racchiude correttamente hostname IPv6 tra parentesi quadre', () => {
+test('wraps IPv6 hostnames in square brackets', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'https:',
@@ -69,7 +69,7 @@ test('racchiude correttamente hostname IPv6 tra parentesi quadre', () => {
   );
 });
 
-test('usa una porta agent configurata diversa dal valore predefinito', () => {
+test('uses a configured agent port different from the default', () => {
   assert.equal(
     buildWebSocketUrl({
       protocol: 'https:',
@@ -80,7 +80,7 @@ test('usa una porta agent configurata diversa dal valore predefinito', () => {
   );
 });
 
-test('non dipende dal pathname e non contiene domini hard-coded', () => {
+test('does not depend on pathname and contains no hard-coded domains', () => {
   const source = fs.readFileSync(
     new URL('../websocket-url.js', import.meta.url),
     'utf8'

@@ -25,5 +25,5 @@ if (failures.length) {
   console.error(failures.join('\n'));
   process.exitCode = 1;
 } else {
-  console.log(`[check] ${files.length} file JavaScript validi`);
+  console.log(`[check] ${files.length} valid JavaScript files`);
 }

@@ -54,7 +54,7 @@ if (
   )
 ) {
   throw new Error(
-    `Certificato TLS non trovato: ${certificatePath}`
+    `TLS certificate not found: ${certificatePath}`
   );
 }
 
@@ -64,7 +64,7 @@ if (
   )
 ) {
   throw new Error(
-    `Chiave privata TLS non trovata: ${privateKeyPath}`
+    `TLS private key not found: ${privateKeyPath}`
   );
 }
 
@@ -253,7 +253,7 @@ async function resolveServerInfo() {
         {
           headers: {
             'user-agent':
-              'traffic-map-monitor/1.0'
+              'trafficmap/1.0'
           },
 
           signal:
@@ -361,11 +361,10 @@ function buildFilteredSnapshot(
     1000;
 
   /*
-   * Il client che visualizza la mappa
-   * non viene più escluso.
+   * The client viewing the map is no longer excluded.
    *
-   * TrafficStore imposta isViewer
-   * confrontando gli indirizzi IP reali.
+   * TrafficStore sets isViewer by comparing
+   * the actual IP addresses.
    */
   const clients =
     snapshot.clients.filter(
@@ -587,9 +586,8 @@ function broadcastPacketEvent(
     }
 
     /*
-     * L'evento viene inviato anche
-     * al browser che sta visualizzando
-     * la dashboard.
+     * The event is also sent to the browser
+     * currently viewing the dashboard.
      */
     sendJson(
       socket,
@@ -805,7 +803,7 @@ function cancelDelayedStop() {
   delayedStopTimer = null;
 
   console.log(
-    '[agent] arresto programmato annullato'
+    '[agent] scheduled stop canceled'
   );
 }
 
@@ -831,7 +829,7 @@ function requestMonitoringStart() {
       }
 
       console.log(
-        '[agent] primo client collegato: avvio monitoraggio TCP globale'
+        '[agent] first client connected: starting global TCP monitoring'
       );
 
       try {
@@ -844,7 +842,7 @@ function requestMonitoringStart() {
         monitoringActive = false;
 
         console.error(
-          `[agent] avvio cattura fallito: ${error.message}`
+          `[agent] capture start failed: ${error.message}`
         );
       }
     }
@@ -863,7 +861,7 @@ function executeMonitoringStop() {
       }
 
       console.log(
-        '[agent] nessun client da 5 secondi: arresto monitoraggio'
+        '[agent] no clients for 5 seconds: stopping monitoring'
       );
 
       stopTimers();
@@ -872,7 +870,7 @@ function executeMonitoringStop() {
         await monitor.stop();
       } catch (error) {
         console.error(
-          `[agent] errore arresto cattura: ${error.message}`
+          `[agent] capture stop failed: ${error.message}`
         );
       }
 
@@ -892,7 +890,7 @@ function scheduleMonitoringStop() {
   }
 
   console.log(
-    '[agent] nessun client collegato: arresto programmato tra 5 secondi'
+    '[agent] no clients connected: stop scheduled in 5 seconds'
   );
 
   delayedStopTimer =
@@ -1019,17 +1017,17 @@ httpsServer.listen(
   config.dashboard.listenHost,
   () => {
     console.log(
-      `[agent] WebSocket HTTPS in ascolto su ${
+      `[agent] HTTPS WebSocket listening on ${
         config.dashboard.listenHost
       }:${config.dashboard.listenPort}/ws`
     );
 
     console.log(
-      '[agent] pronto; tcpdump verrà avviato al collegamento del primo client'
+      '[agent] ready; tcpdump will start when the first client connects'
     );
 
     console.log(
-      '[agent] modalità cattura: tutte le porte TCP'
+      '[agent] capture mode: all TCP ports'
     );
   }
 );
@@ -1063,7 +1061,7 @@ function shutdown(signal) {
     .catch(
       (error) => {
         console.error(
-          `[shutdown] errore arresto cattura: ${error.message}`
+          `[shutdown] capture stop failed: ${error.message}`
         );
       }
     )

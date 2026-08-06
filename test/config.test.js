@@ -14,25 +14,25 @@ function defaults() {
 }
 
 function fixture(override, mutateDefaults = () => {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'servermap-config-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'trafficmap-config-'));
   const base = defaults(); mutateDefaults(base);
   fs.writeFileSync(path.join(root, 'config.example.json'), JSON.stringify(base));
   if (override !== undefined) fs.writeFileSync(path.join(root, 'config.json'), JSON.stringify(override));
   return { root, options: { projectRoot: root, configPath: path.join(root, 'config.json') } };
 }
 
-test('merge profondo conserva default e applica override', () => {
+test('deep merge preserves defaults and applies overrides', () => {
   assert.deepEqual(mergeDeep({ a: { b: 1, c: 2 }, d: 3 }, { a: { b: 9 } }), { a: { b: 9, c: 2 }, d: 3 });
 });
 
-test('carica default quando config locale non esiste e risolve la cache', () => {
+test('loads defaults when local config is missing and resolves the cache path', () => {
   const { root, options } = fixture(undefined);
   const config = loadConfig(options);
   assert.equal(config.monitor.interface, 'any');
   assert.equal(config.geoip.cacheFile, path.resolve(root, 'data/cache.json'));
 });
 
-test('override locale converte porta e valori temporali', () => {
+test('local overrides convert port and time values', () => {
   const { options } = fixture({ monitor: { port: '8443' }, dashboard: { recentWindowSeconds: '30' } });
   const config = loadConfig(options);
   assert.equal(config.monitor.port, 8443);
@@ -41,20 +41,20 @@ test('override locale converte porta e valori temporali', () => {
 });
 
 for (const port of [0, 65536, 1.5, 'no']) {
-  test(`rifiuta monitor.port non valido: ${port}`, () => {
+  test(`rejects invalid monitor.port: ${port}`, () => {
     const { options } = fixture({ monitor: { port } });
     assert.throws(() => loadConfig(options), /integer between 1 and 65535/);
   });
 }
 
 for (const key of ['snapshotIntervalMs', 'inactiveAfterSeconds', 'forgetAfterMinutes', 'recentWindowSeconds', 'pulseWindowSeconds']) {
-  test(`rifiuta dashboard.${key} non positivo`, () => {
+  test(`rejects non-positive dashboard.${key}`, () => {
     const { options } = fixture({ dashboard: { [key]: 0 } });
     assert.throws(() => loadConfig(options), new RegExp(`dashboard\\.${key}`));
   });
 }
 
-test('richiede certificato e chiave TLS con errori comprensibili', () => {
+test('requires TLS certificate and private key with clear errors', () => {
   let item = fixture(undefined, (base) => { base.dashboard.tls.certificate = ''; });
   assert.throws(() => loadConfig(item.options), /dashboard\.tls\.certificate must be configured/);
   item = fixture(undefined, (base) => { base.dashboard.tls.privateKey = ''; });

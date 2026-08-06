@@ -167,8 +167,8 @@ export function parseTcpdumpLine(
     extractPayloadBytes(line);
 
   /*
-   * Non visualizziamo ACK puri o pacchetti
-   * privi di payload TCP.
+   * Do not display pure ACK packets or packets
+   * without a TCP payload.
    */
   if (bytes <= 0) {
     return null;
@@ -181,9 +181,9 @@ export function parseTcpdumpLine(
     localAddresses.has(destination.ip);
 
   /*
-   * Pacchetto ricevuto dal server.
+   * Packet received by the server.
    *
-   * client:portaEffimera -> server:portaLocale
+   * client:ephemeralPort -> server:localPort
    */
   if (
     destinationIsLocal &&
@@ -200,9 +200,9 @@ export function parseTcpdumpLine(
   }
 
   /*
-   * Pacchetto inviato dal server.
+   * Packet sent by the server.
    *
-   * server:portaLocale -> client:portaEffimera
+   * server:localPort -> client:ephemeralPort
    */
   if (
     sourceIsLocal &&
@@ -261,7 +261,7 @@ export class TcpdumpMonitor {
       networkInterface,
 
       /*
-       * Non risolvere nomi host o servizi.
+       * Do not resolve host or service names.
        */
       '-n',
 
@@ -271,13 +271,13 @@ export class TcpdumpMonitor {
       '-l',
 
       /*
-       * Output compatto con lunghezza TCP.
+       * Compact output with TCP length.
        */
       '-q',
 
       /*
-       * Cattura un solo flusso globale TCP.
-       * Il filtraggio per porta avviene nell'agent.
+       * Capture a single global TCP stream.
+       * Port filtering is performed by the agent.
        */
       'tcp'
     ];
@@ -422,7 +422,7 @@ export class TcpdumpMonitor {
         try {
           lineReader.close();
         } catch {
-          // Già chiuso.
+          // Already closed.
         }
 
         console.error(
@@ -451,7 +451,7 @@ export class TcpdumpMonitor {
         try {
           lineReader.close();
         } catch {
-          // Già chiuso.
+          // Already closed.
         }
 
         console.log(
@@ -562,7 +562,7 @@ export class TcpdumpMonitor {
       try {
         await this.startPromise;
       } catch {
-        // Il processo non è partito.
+        // The process did not start.
       }
     }
 

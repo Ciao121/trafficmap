@@ -1,9 +1,9 @@
 {
-  "name": "traffic-map-monitor",
+  "name": "trafficmap",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Passive full-page network traffic map for a single port.",
+  "description": "TrafficMap passive full-page network traffic dashboard.",
   "scripts": {
     "start": "node src/agent.js",
     "check": "node scripts/check-syntax.js",

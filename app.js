@@ -2,7 +2,7 @@ import {
   buildWebSocketUrl
 } from './websocket-url.js';
 
-/* Deve coincidere con dashboard.listenPort di config.json. */
+/* Must match dashboard.listenPort in config.json. */
 const WEBSOCKET_PORT = 3100;
 
 const ALLOWED_ACTIVITY_WINDOWS = new Set([
@@ -55,11 +55,11 @@ const DEFERRED_PACKET_MAX_AGE_MS = 3000;
 const GEODESIC_SEGMENTS = 64;
 
 /*
- * Coordinate con cinque decimali:
- * circa un metro di precisione.
+ * Coordinates with five decimal places:
+ * approximately one meter of precision.
  *
- * Gli IP geolocalizzati nello stesso punto
- * vengono quindi raggruppati.
+ * IP addresses geolocated at the same point
+ * are therefore grouped together.
  */
 const COORDINATE_GROUP_PRECISION = 5;
 
@@ -154,15 +154,14 @@ let reconnectTimer = null;
 let currentServerCoordinates = null;
 
 /*
- * I marker sono indicizzati per gruppo
- * di coordinate, non più per IP.
+ * Markers are indexed by coordinate group,
+ * no longer by IP address.
  */
 const groupMarkers = new Map();
 
 /*
- * Le coordinate restano memorizzate
- * separatamente per IP, perché gli eventi
- * realtime arrivano con l'IP.
+ * Coordinates remain stored separately by IP
+ * because real-time events include the IP address.
  */
 const clientCoordinates = new Map();
 
@@ -742,7 +741,7 @@ function clientPopupRow(client) {
         </span>
 
         <span>
-          Recenti:
+          Recent:
           <b>
             ${formatBytes(
               getClientRecentBytes(
@@ -767,7 +766,7 @@ function groupPopupHtml(group) {
   ]
     .filter(Boolean)
     .join(', ') ||
-    'Località non disponibile';
+    'Location unavailable';
 
   const count =
     group.clients.length;
@@ -795,7 +794,7 @@ function groupPopupHtml(group) {
     </div>
 
     <div class="popup-grid group-summary">
-      <span>Protocollo</span>
+      <span>Protocol</span>
       <b>
         ${escapeHtml(
           String(
@@ -805,7 +804,7 @@ function groupPopupHtml(group) {
         )}
       </b>
 
-      <span>Porta locale</span>
+      <span>Local port</span>
       <b>
         ${escapeHtml(
           firstClient.localPort ||
@@ -813,24 +812,24 @@ function groupPopupHtml(group) {
         )}
       </b>
 
-      <span>IP nel punto</span>
+      <span>IPs at this location</span>
       <b>${count}</b>
 
-      <span>Ingresso totale</span>
+      <span>Total inbound</span>
       <b>
         ${formatBytes(
           group.bytesIn
         )}
       </b>
 
-      <span>Uscita totale</span>
+      <span>Total outbound</span>
       <b>
         ${formatBytes(
           group.bytesOut
         )}
       </b>
 
-      <span>Traffico recente</span>
+      <span>Recent traffic</span>
       <b>
         ${formatBytes(
           group.recentBytesIn +
@@ -2002,8 +2001,7 @@ function updateGroupMarker(
     );
 
   /*
-   * Un gruppo deve contenere il numero
-   * in modo leggibile.
+   * A group must display its count clearly.
    */
   const groupedSize =
     count > 1
@@ -2226,8 +2224,8 @@ function applySnapshot(snapshot) {
   updateServerMarker(snapshot);
 
   /*
-   * Eliminiamo le coordinate di IP che
-   * non appartengono più allo snapshot.
+   * Remove coordinates for IP addresses that
+   * no longer belong to the snapshot.
    */
   const currentIps =
     new Set(
@@ -2359,8 +2357,8 @@ function setConnectionState(
   if (label) {
     label.textContent =
       connected
-        ? 'connesso'
-        : 'disconnesso';
+        ? 'connected'
+        : 'disconnected';
   }
 }
 
@@ -2507,7 +2505,7 @@ function handleSocketMessage(rawData) {
     !message.config
   ) {
     console.warn(
-      'Messaggio WebSocket non riconosciuto:',
+      'Unrecognized WebSocket message:',
       message
     );
 
@@ -2563,7 +2561,7 @@ function connect() {
         );
       } catch (error) {
         console.error(
-          'Messaggio WebSocket non valido:',
+          'Invalid WebSocket message:',
           error
         );
       }
@@ -2665,7 +2663,7 @@ function applyCustomPort() {
   ) {
     ui.customPort
       .setCustomValidity(
-        'Inserisci una porta compresa tra 1 e 65535.'
+        'Enter a port between 1 and 65535.'
       );
 
     ui.customPort
