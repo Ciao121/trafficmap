@@ -1,0 +1,17 @@
+{
+  "name": "traffic-map-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Passive full-page network traffic map for a single port.",
+  "scripts": {
+    "start": "node src/agent.js",
+    "check": "node --check src/agent.js && node --check src/config.js && node --check src/geoip-cache.js && node --check src/traffic-store.js && node --check src/tcpdump-monitor.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

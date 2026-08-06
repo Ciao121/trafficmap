@@ -1,0 +1,44 @@
+{
+  "monitor": {
+    "interface": "any",
+    "port": 443,
+    "protocol": "tcp",
+    "tcpdumpPath": "/usr/bin/tcpdump",
+    "sudo": false
+  },
+  "dashboard": {
+    "listenHost": "127.0.0.1",
+    "listenPort": 3100,
+    "publicUrl": "",
+    "snapshotIntervalMs": 1000,
+    "inactiveAfterSeconds": 60,
+    "forgetAfterMinutes": 1440,
+    "recentWindowSeconds": 300,
+    "pulseWindowSeconds": 10
+  },
+  "server": {
+    "name": "My server",
+    "latitude": null,
+    "longitude": null,
+    "publicIp": "",
+    "autoLocate": true
+  },
+  "geoip": {
+    "endpointTemplate": "https://json.geoiplookup.io/{ip}",
+    "timeoutMs": 5000,
+    "cacheFile": "./data/geoip-cache.json",
+    "persistIntervalSeconds": 60,
+    "negativeCacheMinutes": 60
+  },
+  "privacy": {
+    "maskIp": false,
+    "excludePrivateIps": true,
+    "excludedIps": []
+  },
+  "map": {
+    "tileUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "tileAttribution": "&copy; OpenStreetMap contributors",
+    "initialZoom": 3,
+    "maxMarkerRadius": 42
+  }
+}

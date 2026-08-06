@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <title>Server Traffic Map</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+  <main id="app">
+    <div id="map"></div>
+
+    <aside class="side-toolbar">
+      <section class="toolbar-section toolbar-identity">
+        <div
+          id="connection"
+          class="connection offline"
+        >
+          <span class="connection-dot"></span>
+          <span>disconnesso</span>
+        </div>
+
+        <div class="server-info">
+          <h1 id="server-name">Server</h1>
+
+          <div class="server-port">
+            Porta monitorata:
+            <strong id="port">443</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar-section toolbar-filter">
+        <label for="monitored-port">
+          Porta
+        </label>
+
+        <select id="monitored-port">
+          <option value="443">443 — HTTPS</option>
+          <option value="80">80 — HTTP</option>
+          <option value="22">22 — SSH</option>
+          <option value="21">21 — FTP</option>
+          <option value="25">25 — SMTP</option>
+          <option value="53">53 — DNS TCP</option>
+          <option value="110">110 — POP3</option>
+          <option value="143">143 — IMAP</option>
+          <option value="465">465 — SMTPS</option>
+          <option value="587">587 — SMTP submission</option>
+          <option value="993">993 — IMAPS</option>
+          <option value="995">995 — POP3S</option>
+          <option value="3306">3306 — MySQL/MariaDB</option>
+          <option value="5432">5432 — PostgreSQL</option>
+          <option value="6379">6379 — Redis</option>
+          <option value="custom">Altra porta…</option>
+        </select>
+
+        <div
+          id="custom-port-container"
+          hidden
+        >
+          <label for="custom-port">
+            Porta personalizzata
+          </label>
+
+          <input
+            id="custom-port"
+            type="number"
+            min="1"
+            max="65535"
+            step="1"
+            inputmode="numeric"
+            placeholder="1–65535"
+          >
+        </div>
+      </section>
+
+      <section class="toolbar-section toolbar-filter">
+        <label for="activity-window">
+          Mostra client con traffico negli ultimi
+        </label>
+
+        <select id="activity-window">
+          <option value="5">5 secondi</option>
+          <option value="10">10 secondi</option>
+          <option value="30">30 secondi</option>
+          <option value="60">60 secondi</option>
+        </select>
+      </section>
+
+      <section class="toolbar-section toolbar-stats">
+        <article class="toolbar-stat">
+          <span>Attivi</span>
+          <strong id="active-clients">0</strong>
+        </article>
+
+        <article class="toolbar-stat">
+          <span>Mappati</span>
+          <strong id="mapped-clients">0</strong>
+        </article>
+
+        <article class="toolbar-stat">
+          <span>Ingresso</span>
+          <strong id="recent-in">0 B</strong>
+        </article>
+
+        <article class="toolbar-stat">
+          <span>Uscita</span>
+          <strong id="recent-out">0 B</strong>
+        </article>
+
+        <article class="toolbar-stat toolbar-stat-wide">
+          <span>Totale visibile</span>
+          <strong id="total">0 B</strong>
+        </article>
+      </section>
+    </aside>
+
+    <div
+      id="empty"
+      class="empty-message"
+    >
+      Nessun traffico TCP sulla porta selezionata.
+    </div>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
+
+  <script src="./app.js"></script>
+</body>
+</html>
