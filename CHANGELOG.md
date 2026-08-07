@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-08-07
+
+### Fixed
+
+- Kept filter cards and removal buttons stable while packet counters and WebSocket snapshots update.
+- Prevented in-flight snapshots from restoring a filter while its updated selection awaits agent acknowledgement.
+- Removed the visual Leaflet zoom buttons while preserving wheel, touch, and programmatic zoom.
+
 ## [1.1.1] - 2026-08-07
 
 ### Fixed

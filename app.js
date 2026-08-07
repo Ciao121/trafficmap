@@ -4,8 +4,15 @@ import {
 
 import {
   buildSetFiltersMessage,
-  removeFilterByPort
+  filterSelectionSignature,
+  matchesSelectedFilters,
+  removeFilterByPort,
+  shouldApplyServerFilters
 } from './filter-controls.js';
+
+import {
+  reconcileFilterCards
+} from './filter-panel.js';
 
 /* Must match dashboard.listenPort in config.json. */
 const WEBSOCKET_PORT = 3100;
@@ -57,10 +64,6 @@ const map = L.map(
   [20, 0],
   3
 );
-
-L.control.zoom({
-  position: 'bottomright'
-}).addTo(map);
 
 const ui = {
   connection:
@@ -235,6 +238,8 @@ let activityWindowSeconds =
   );
 
 let activeFilters = [];
+let pendingFilterSignature = null;
+const filterCards = new Map();
 
 ui.activityWindow.value =
   String(
@@ -2318,11 +2323,16 @@ function sendActivityWindow() {
 }
 
 function sendFilters() {
-  sendJson(
-    buildSetFiltersMessage(
-      activeFilters
-    )
+  const message = buildSetFiltersMessage(
+    activeFilters
   );
+
+  pendingFilterSignature =
+    filterSelectionSignature(
+      message.filters
+    );
+
+  sendJson(message);
 }
 
 function removeActiveFilter(port) {
@@ -2351,35 +2361,33 @@ function renderFilters() {
   ui.filterMode.textContent = activeFilters.length
     ? `${activeFilters.length} filter${activeFilters.length === 1 ? '' : 's'}`
     : 'All ports';
-  ui.activeFilters.innerHTML = activeFilters.map((filter) => `
-    <div class="active-filter">
-      <strong>${filter.port}</strong>
-      <span>${filter.protocol === 'both' ? 'TCP+UDP' : filter.protocol.toUpperCase()}</span>
-      <span>IN ${formatBytes(filter.bytesIn || 0)}</span>
-      <span>OUT ${formatBytes(filter.bytesOut || 0)}</span>
-      <button type="button" data-remove-filter="${filter.port}" aria-label="Remove filter ${filter.port}">×</button>
-    </div>
-  `).join('');
-
-  for (
-    const button
-    of ui.activeFilters.querySelectorAll(
-      '[data-remove-filter]'
-    )
-  ) {
-    button.addEventListener(
-      'click',
-      () => {
-        removeActiveFilter(
-          button.dataset.removeFilter
-        );
-      }
-    );
-  }
+  reconcileFilterCards({
+    container: ui.activeFilters,
+    cards: filterCards,
+    filters: activeFilters,
+    formatBytes,
+    onRemove: removeActiveFilter
+  });
 }
 
-function applyServerFilters(filters) {
-  if (!Array.isArray(filters)) return;
+function applyServerFilters(
+  filters,
+  acknowledgement = false
+) {
+  if (!Array.isArray(filters)) return false;
+
+  if (!shouldApplyServerFilters(
+    pendingFilterSignature,
+    filters,
+    acknowledgement
+  )) {
+    return false;
+  }
+
+  if (acknowledgement) {
+    pendingFilterSignature = null;
+  }
+
   activeFilters = filters.map((filter) => ({
     port: Number(filter.port),
     protocol: filter.protocol,
@@ -2387,6 +2395,7 @@ function applyServerFilters(filters) {
     bytesOut: Number(filter.bytesOut) || 0
   }));
   renderFilters();
+  return true;
 }
 
 function handleSocketMessage(rawData) {
@@ -2428,11 +2437,15 @@ function handleSocketMessage(rawData) {
     message?.type ===
     'filters'
   ) {
-    applyServerFilters(message.filters);
+    applyServerFilters(
+      message.filters,
+      true
+    );
     return;
   }
 
   if (message?.type === 'filters_error') {
+    pendingFilterSignature = null;
     ui.filterError.textContent = message.error || 'Invalid filters.';
     return;
   }
@@ -2441,6 +2454,13 @@ function handleSocketMessage(rawData) {
     message?.type ===
     'packet'
   ) {
+    if (!matchesSelectedFilters(
+      activeFilters,
+      message
+    )) {
+      return;
+    }
+
     const filter = activeFilters.find((item) => item.port === Number(message.localPort) && (item.protocol === 'both' || item.protocol === message.protocol));
     if (filter) {
       if (message.direction === 'out') filter.bytesOut += Number(message.bytes) || 0;
@@ -2467,7 +2487,9 @@ function handleSocketMessage(rawData) {
     return;
   }
 
-  applyServerFilters(message.filters);
+  if (!applyServerFilters(message.filters)) {
+    return;
+  }
   scheduleSnapshot(message);
 }
 
