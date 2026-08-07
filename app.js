@@ -13,34 +13,12 @@ const ALLOWED_ACTIVITY_WINDOWS = new Set([
 ]);
 
 const DEFAULT_ACTIVITY_WINDOW = 5;
-const DEFAULT_MONITORED_PORT = 443;
 
 const ACTIVITY_COOKIE =
   'servermap_activity_window';
 
-const PORT_COOKIE =
-  'servermap_monitored_port';
-
 const COOKIE_MAX_AGE =
   365 * 24 * 60 * 60;
-
-const KNOWN_PORTS = new Set([
-  21,
-  22,
-  25,
-  53,
-  80,
-  110,
-  143,
-  443,
-  465,
-  587,
-  993,
-  995,
-  3306,
-  5432,
-  6379
-]);
 
 const PACKET_ANIMATION_MIN_MS = 420;
 const PACKET_ANIMATION_MAX_MS = 850;
@@ -90,25 +68,31 @@ const ui = {
       '#server-name'
     ),
 
-  port:
+  filterMode:
     document.querySelector(
-      '#port'
+      '#filter-mode'
     ),
 
-  monitoredPort:
+  filterPort:
     document.querySelector(
-      '#monitored-port'
+      '#filter-port'
     ),
 
-  customPortContainer:
+  filterProtocol:
     document.querySelector(
-      '#custom-port-container'
+      '#filter-protocol'
     ),
 
-  customPort:
+  addFilter:
     document.querySelector(
-      '#custom-port'
+      '#add-filter'
     ),
+
+  filterError:
+    document.querySelector('#filter-error'),
+
+  activeFilters:
+    document.querySelector('#active-filters'),
 
   activityWindow:
     document.querySelector(
@@ -180,7 +164,7 @@ function validatePort(value) {
     port < 1 ||
     port > 65535
   ) {
-    return DEFAULT_MONITORED_PORT;
+    return null;
   }
 
   return port;
@@ -245,46 +229,13 @@ let activityWindowSeconds =
     )
   );
 
-let monitoredPort =
-  validatePort(
-    readCookie(
-      PORT_COOKIE
-    )
-  );
-
-function updatePortControls() {
-  if (
-    KNOWN_PORTS.has(
-      monitoredPort
-    )
-  ) {
-    ui.monitoredPort.value =
-      String(monitoredPort);
-
-    ui.customPortContainer.hidden =
-      true;
-
-    ui.customPort.value = '';
-
-    return;
-  }
-
-  ui.monitoredPort.value =
-    'custom';
-
-  ui.customPortContainer.hidden =
-    false;
-
-  ui.customPort.value =
-    String(monitoredPort);
-}
+let activeFilters = [];
 
 ui.activityWindow.value =
   String(
     activityWindowSeconds
   );
 
-updatePortControls();
 
 function normalizeIp(ip) {
   if (!ip) {
@@ -808,7 +759,7 @@ function groupPopupHtml(group) {
       <b>
         ${escapeHtml(
           firstClient.localPort ||
-          monitoredPort
+          ''
         )}
       </b>
 
@@ -1689,15 +1640,6 @@ function flushDeferredPackets(ip) {
 }
 
 function enqueuePacket(event) {
-  if (
-    validatePort(
-      event.localPort
-    ) !==
-    monitoredPort
-  ) {
-    return;
-  }
-
   const normalizedEvent = {
     type: 'packet',
 
@@ -1850,12 +1792,9 @@ function updateDashboard(snapshot) {
     snapshot.server?.name ||
     'Server';
 
-  ui.port.textContent =
-    String(
-      snapshot.config
-        ?.monitoredPort ??
-      monitoredPort
-    );
+  ui.filterMode.textContent = activeFilters.length
+    ? `${activeFilters.length} filter${activeFilters.length === 1 ? '' : 's'}`
+    : 'All ports';
 
   ui.activeClients.textContent =
     Number(
@@ -2189,19 +2128,6 @@ function updateGroupMarker(
 }
 
 function applySnapshot(snapshot) {
-  const snapshotPort =
-    validatePort(
-      snapshot.config
-        ?.monitoredPort
-    );
-
-  if (
-    snapshotPort !==
-    monitoredPort
-  ) {
-    return;
-  }
-
   if (!tileLayer) {
     tileLayer =
       L.tileLayer(
@@ -2386,46 +2312,41 @@ function sendActivityWindow() {
   });
 }
 
-function sendMonitoredPort() {
+function sendFilters() {
   sendJson({
     type:
-      'set_monitored_port',
+      'set_filters',
 
-    port:
-      monitoredPort,
-
-    protocol:
-      'tcp'
+    filters:
+      activeFilters.map(({ port, protocol }) => ({ port, protocol }))
   });
 }
 
-function applyPortSelection(port) {
-  const validated =
-    validatePort(port);
+function renderFilters() {
+  ui.activeFilters.hidden = activeFilters.length === 0;
+  ui.filterMode.textContent = activeFilters.length
+    ? `${activeFilters.length} filter${activeFilters.length === 1 ? '' : 's'}`
+    : 'All ports';
+  ui.activeFilters.innerHTML = activeFilters.map((filter) => `
+    <div class="active-filter">
+      <strong>${filter.port}</strong>
+      <span>${filter.protocol === 'both' ? 'TCP+UDP' : filter.protocol.toUpperCase()}</span>
+      <span>IN ${formatBytes(filter.bytesIn || 0)}</span>
+      <span>OUT ${formatBytes(filter.bytesOut || 0)}</span>
+      <button type="button" data-remove-filter="${filter.port}" aria-label="Remove filter ${filter.port}">×</button>
+    </div>
+  `).join('');
+}
 
-  if (
-    validated ===
-    monitoredPort
-  ) {
-    updatePortControls();
-    return;
-  }
-
-  monitoredPort =
-    validated;
-
-  writeCookie(
-    PORT_COOKIE,
-    String(monitoredPort)
-  );
-
-  updatePortControls();
-  clearDisplayedTraffic();
-
-  ui.port.textContent =
-    String(monitoredPort);
-
-  sendMonitoredPort();
+function applyServerFilters(filters) {
+  if (!Array.isArray(filters)) return;
+  activeFilters = filters.map((filter) => ({
+    port: Number(filter.port),
+    protocol: filter.protocol,
+    bytesIn: Number(filter.bytesIn) || 0,
+    bytesOut: Number(filter.bytesOut) || 0
+  }));
+  renderFilters();
 }
 
 function handleSocketMessage(rawData) {
@@ -2465,26 +2386,14 @@ function handleSocketMessage(rawData) {
 
   if (
     message?.type ===
-    'monitored_port'
+    'filters'
   ) {
-    const confirmedPort =
-      validatePort(
-        message.port
-      );
+    applyServerFilters(message.filters);
+    return;
+  }
 
-    monitoredPort =
-      confirmedPort;
-
-    writeCookie(
-      PORT_COOKIE,
-      String(confirmedPort)
-    );
-
-    updatePortControls();
-
-    ui.port.textContent =
-      String(confirmedPort);
-
+  if (message?.type === 'filters_error') {
+    ui.filterError.textContent = message.error || 'Invalid filters.';
     return;
   }
 
@@ -2492,6 +2401,12 @@ function handleSocketMessage(rawData) {
     message?.type ===
     'packet'
   ) {
+    const filter = activeFilters.find((item) => item.port === Number(message.localPort) && (item.protocol === 'both' || item.protocol === message.protocol));
+    if (filter) {
+      if (message.direction === 'out') filter.bytesOut += Number(message.bytes) || 0;
+      else filter.bytesIn += Number(message.bytes) || 0;
+      renderFilters();
+    }
     enqueuePacket(message);
     return;
   }
@@ -2512,6 +2427,7 @@ function handleSocketMessage(rawData) {
     return;
   }
 
+  applyServerFilters(message.filters);
   scheduleSnapshot(message);
 }
 
@@ -2548,7 +2464,7 @@ function connect() {
       setConnectionState(true);
 
       sendActivityWindow();
-      sendMonitoredPort();
+      sendFilters();
     }
   );
 
@@ -2625,80 +2541,44 @@ ui.activityWindow
     }
   );
 
-ui.monitoredPort
-  .addEventListener(
-    'change',
-    () => {
-      if (
-        ui.monitoredPort.value ===
-        'custom'
-      ) {
-        ui.customPortContainer.hidden =
-          false;
-
-        ui.customPort.focus();
-
-        return;
-      }
-
-      ui.customPortContainer.hidden =
-        true;
-
-      applyPortSelection(
-        ui.monitoredPort.value
-      );
-    }
-  );
-
-function applyCustomPort() {
-  const raw =
-    Number(
-      ui.customPort.value
-    );
-
-  if (
-    !Number.isInteger(raw) ||
-    raw < 1 ||
-    raw > 65535
-  ) {
-    ui.customPort
-      .setCustomValidity(
-        'Enter a port between 1 and 65535.'
-      );
-
-    ui.customPort
-      .reportValidity();
-
+function addFilter() {
+  const port = Number(ui.filterPort.value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    ui.filterError.textContent = 'Enter a port between 1 and 65535.';
+    return;
+  }
+  if (activeFilters.some((filter) => filter.port === port)) {
+    ui.filterError.textContent = `Port ${port} already has a filter.`;
     return;
   }
 
-  ui.customPort
-    .setCustomValidity('');
-
-  applyPortSelection(raw);
+  activeFilters.push({ port, protocol: ui.filterProtocol.value, bytesIn: 0, bytesOut: 0 });
+  ui.filterPort.value = '';
+  ui.filterError.textContent = '';
+  renderFilters();
+  clearDisplayedTraffic();
+  sendFilters();
 }
 
-ui.customPort
-  .addEventListener(
-    'change',
-    applyCustomPort
-  );
+ui.addFilter.addEventListener('click', addFilter);
+ui.filterPort.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addFilter();
+  }
+});
 
-ui.customPort
-  .addEventListener(
-    'keydown',
-    (event) => {
-      if (
-        event.key !==
-        'Enter'
-      ) {
-        return;
-      }
+ui.activeFilters.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-remove-filter]');
+  if (!button) return;
+  const port = Number(button.dataset.removeFilter);
+  activeFilters = activeFilters.filter((filter) => filter.port !== port);
+  ui.filterError.textContent = '';
+  renderFilters();
+  clearDisplayedTraffic();
+  sendFilters();
+});
 
-      event.preventDefault();
-
-      applyCustomPort();
-    }
-  );
+renderFilters();
 
 connect();

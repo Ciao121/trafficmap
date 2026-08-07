@@ -39,54 +39,35 @@
           <h1 id="server-name">Server</h1>
 
           <div class="server-port">
-            Monitored port:
-            <strong id="port">443</strong>
+            Traffic:
+            <strong id="filter-mode">All ports</strong>
           </div>
         </div>
       </section>
 
       <section class="toolbar-section toolbar-filter">
-        <label for="monitored-port">
-          Port
+        <label for="filter-port">
+          Add port filter
         </label>
 
-        <select id="monitored-port">
-          <option value="443">443 — HTTPS</option>
-          <option value="80">80 — HTTP</option>
-          <option value="22">22 — SSH</option>
-          <option value="21">21 — FTP</option>
-          <option value="25">25 — SMTP</option>
-          <option value="53">53 — DNS TCP</option>
-          <option value="110">110 — POP3</option>
-          <option value="143">143 — IMAP</option>
-          <option value="465">465 — SMTPS</option>
-          <option value="587">587 — SMTP submission</option>
-          <option value="993">993 — IMAPS</option>
-          <option value="995">995 — POP3S</option>
-          <option value="3306">3306 — MySQL/MariaDB</option>
-          <option value="5432">5432 — PostgreSQL</option>
-          <option value="6379">6379 — Redis</option>
-          <option value="custom">Other port…</option>
+        <input
+          id="filter-port"
+          type="number"
+          min="1"
+          max="65535"
+          step="1"
+          inputmode="numeric"
+          placeholder="1–65535"
+        >
+
+        <select id="filter-protocol">
+          <option value="tcp">TCP</option>
+          <option value="udp">UDP</option>
+          <option value="both">TCP + UDP</option>
         </select>
 
-        <div
-          id="custom-port-container"
-          hidden
-        >
-          <label for="custom-port">
-            Custom port
-          </label>
-
-          <input
-            id="custom-port"
-            type="number"
-            min="1"
-            max="65535"
-            step="1"
-            inputmode="numeric"
-            placeholder="1–65535"
-          >
-        </div>
+        <button id="add-filter" type="button">Add</button>
+        <div id="filter-error" class="filter-error" role="status"></div>
       </section>
 
       <section class="toolbar-section toolbar-filter">
@@ -130,11 +111,13 @@
       </section>
     </aside>
 
+    <section id="active-filters" class="active-filters" hidden></section>
+
     <div
       id="empty"
       class="empty-message"
     >
-      No TCP traffic on the selected port.
+      No matching TCP or UDP traffic.
     </div>
   </main>
 

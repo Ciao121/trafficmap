@@ -117,6 +117,13 @@ export function extractPayloadBytes(line) {
   return 0;
 }
 
+export function extractProtocol(line) {
+  if (/\bUDP\b/i.test(line)) return 'udp';
+  if (/\btcp\b/i.test(line)) return 'tcp';
+  if (/\bIP6?\s/.test(line)) return 'tcp';
+  return null;
+}
+
 export function parseTcpdumpLine(
   line,
   localAddresses
@@ -166,11 +173,14 @@ export function parseTcpdumpLine(
   const bytes =
     extractPayloadBytes(line);
 
+  const protocol =
+    extractProtocol(line);
+
   /*
    * Do not display pure ACK packets or packets
    * without a TCP payload.
    */
-  if (bytes <= 0) {
+  if (!protocol || bytes <= 0) {
     return null;
   }
 
@@ -194,7 +204,7 @@ export function parseTcpdumpLine(
       localPort: destination.port,
       remotePort: source.port,
       direction: 'in',
-      protocol: 'tcp',
+      protocol,
       bytes
     };
   }
@@ -213,7 +223,7 @@ export function parseTcpdumpLine(
       localPort: source.port,
       remotePort: destination.port,
       direction: 'out',
-      protocol: 'tcp',
+      protocol,
       bytes
     };
   }
@@ -276,10 +286,12 @@ export class TcpdumpMonitor {
       '-q',
 
       /*
-       * Capture a single global TCP stream.
+       * Capture a single global TCP and UDP stream.
        * Port filtering is performed by the agent.
        */
-      'tcp'
+      'tcp',
+      'or',
+      'udp'
     ];
 
     if (this.config.sudo) {

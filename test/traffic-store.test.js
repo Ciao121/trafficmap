@@ -72,6 +72,30 @@ test('masks snapshots without changing the internal key', async () => {
 test('ignores invalid ports and protocols', async () => {
   const store = new TrafficStore(config, { lookup: async () => geo });
   await store.record('8.8.8.8', 'in', 1, 0);
-  await store.record('8.8.8.8', 'in', 1, 443, 'udp');
+  await store.record('8.8.8.8', 'in', 1, 443, 'icmp');
   assert.equal(store.clients.size, 0);
+});
+
+test('records and snapshots UDP bytes in both directions', async () => {
+  const store = new TrafficStore(config, { lookup: async () => geo });
+  await store.record('8.8.8.8', 'in', 11, 53, 'udp');
+  await store.record('8.8.8.8', 'out', 13, 53, 'udp');
+  await flush();
+  const snapshot = store.snapshot({}, [{ port: 53, protocol: 'udp' }], '');
+  assert.equal(snapshot.totals.bytesIn, 11);
+  assert.equal(snapshot.totals.bytesOut, 13);
+  assert.equal(snapshot.clients[0].protocol, 'udp');
+});
+
+test('filtered snapshots contain only the union of active filters', async () => {
+  const store = new TrafficStore(config, { lookup: async () => geo });
+  await store.record('8.8.8.8', 'in', 1, 443, 'tcp');
+  await store.record('1.1.1.1', 'in', 2, 53, 'udp');
+  await store.record('9.9.9.9', 'in', 4, 22, 'tcp');
+  await flush();
+  const filtered = store.snapshot({}, [{ port: 443, protocol: 'tcp' }, { port: 53, protocol: 'udp' }], '');
+  assert.equal(filtered.totals.bytesIn, 3);
+  assert.equal(filtered.clients.length, 2);
+  const all = store.snapshot({}, [], '');
+  assert.equal(all.totals.bytesIn, 7);
 });

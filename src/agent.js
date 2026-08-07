@@ -28,8 +28,15 @@ import {
 } from './tcpdump-monitor.js';
 
 import {
+  applyFilterSet,
+  countFilteredPacket,
+  matchesFilters,
+  serializeFilters,
+  validateFilters
+} from './filters.js';
+
+import {
   DEFAULT_ACTIVITY_WINDOW,
-  DEFAULT_MONITORED_PORT,
   normalizeTimestamp,
   sendJson as serializeAndSendJson,
   shouldRecordIp,
@@ -253,7 +260,7 @@ async function resolveServerInfo() {
         {
           headers: {
             'user-agent':
-              'trafficmap/1.0'
+              'trafficmap/1.1'
           },
 
           signal:
@@ -348,8 +355,7 @@ function buildFilteredSnapshot(
   const snapshot =
     store.snapshot(
       serverInfo,
-      state.monitoredPort,
-      state.protocol,
+      state.filters,
       state.viewerIp
     );
 
@@ -464,7 +470,10 @@ function buildFilteredSnapshot(
     },
 
     activityWindowSeconds:
-      state.activityWindowSeconds
+      state.activityWindowSeconds,
+
+    filters:
+      serializeFilters(state)
   };
 }
 
@@ -528,7 +537,7 @@ function broadcastPacketEvent(
   if (
     !ip ||
     bytes <= 0 ||
-    protocol !== 'tcp'
+    !['tcp', 'udp'].includes(protocol)
   ) {
     return;
   }
@@ -576,14 +585,11 @@ function broadcastPacketEvent(
       continue;
     }
 
-    if (
-      state.protocol !==
-        protocol ||
-      state.monitoredPort !==
-        localPort
-    ) {
+    if (!matchesFilters(state.filters, event)) {
       continue;
     }
+
+    countFilteredPacket(state, event);
 
     /*
      * The event is also sent to the browser
@@ -698,36 +704,24 @@ function handleSocketMessage(
 
   if (
     message?.type ===
-    'set_monitored_port'
+    'set_filters'
   ) {
-    state.monitoredPort =
-      validatePort(
-        message.port
-      );
+    const result = validateFilters(message.filters);
+    if (!result.valid) {
+      sendJson(socket, { type: 'filters_error', error: result.error });
+      return;
+    }
 
-    state.protocol =
-      'tcp';
-
-    console.log(
-      `[websocket] ${
-        state.viewerIp ||
-        'unknown'
-      } monitors TCP port ${
-        state.monitoredPort
-      }`
-    );
+    applyFilterSet(state, result.filters);
 
     sendJson(
       socket,
       {
         type:
-          'monitored_port',
+          'filters',
 
-        port:
-          state.monitoredPort,
-
-        protocol:
-          state.protocol
+        filters:
+          serializeFilters(state)
       }
     );
 
@@ -829,7 +823,7 @@ function requestMonitoringStart() {
       }
 
       console.log(
-        '[agent] first client connected: starting global TCP monitoring'
+        '[agent] first client connected: starting global TCP and UDP monitoring'
       );
 
       try {
@@ -924,11 +918,8 @@ wss.on(
       activityWindowSeconds:
         DEFAULT_ACTIVITY_WINDOW,
 
-      monitoredPort:
-        DEFAULT_MONITORED_PORT,
-
-      protocol:
-        'tcp'
+      filters: [],
+      filterCounters: new Map()
     };
 
     socketStates.set(
@@ -1027,7 +1018,7 @@ httpsServer.listen(
     );
 
     console.log(
-      '[agent] capture mode: all TCP ports'
+      '[agent] capture mode: all TCP and UDP ports'
     );
   }
 );

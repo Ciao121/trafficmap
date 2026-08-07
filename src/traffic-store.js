@@ -22,8 +22,8 @@ function normalizeProtocol(value) {
       .trim()
       .toLowerCase();
 
-  return protocol === 'tcp'
-    ? 'tcp'
+  return protocol === 'tcp' || protocol === 'udp'
+    ? protocol
     : null;
 }
 
@@ -271,14 +271,14 @@ export class TrafficStore {
 
     this.cleanup(now);
 
-    const safePort =
-      validatePort(selectedPort) ||
-      443;
+    const filters = Array.isArray(selectedPort)
+      ? selectedPort
+      : [{
+          port: validatePort(selectedPort) || 443,
+          protocol: normalizeProtocol(selectedProtocol) || 'tcp'
+        }];
 
-    const safeProtocol =
-      normalizeProtocol(
-        selectedProtocol
-      ) || 'tcp';
+    if (Array.isArray(selectedPort)) viewerIp = selectedProtocol || '';
 
     const recentFrom =
       Math.floor(
@@ -325,12 +325,9 @@ export class TrafficStore {
       const client
       of this.clients.values()
     ) {
-      if (
-        client.protocol !==
-          safeProtocol ||
-        client.localPort !==
-          safePort
-      ) {
+      if (filters.length && !filters.some((filter) =>
+        filter.port === client.localPort &&
+        (filter.protocol === 'both' || filter.protocol === client.protocol))) {
         continue;
       }
 
@@ -490,11 +487,13 @@ export class TrafficStore {
         serverInfo,
 
       config: {
+        filters,
+
         monitoredPort:
-          safePort,
+          filters.length === 1 ? filters[0].port : null,
 
         monitoredProtocol:
-          safeProtocol,
+          filters.length === 1 ? filters[0].protocol : null,
 
         recentWindowSeconds:
           this.config.dashboard

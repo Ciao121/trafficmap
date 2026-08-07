@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractPayloadBytes, parseEndpoint, parseTcpdumpLine, TcpdumpMonitor } from '../src/tcpdump-monitor.js';
+import { extractPayloadBytes, extractProtocol, parseEndpoint, parseTcpdumpLine, TcpdumpMonitor } from '../src/tcpdump-monitor.js';
 
 const local = new Set(['192.0.2.10', '2001:db8::10']);
 
@@ -28,9 +28,16 @@ test('parses IPv6 and ignores ACKs, unknown lines, and non-local traffic', () =>
   assert.equal(parseTcpdumpLine('IP 203.0.113.5.1 > 198.51.100.2.2: tcp 1', local), null);
 });
 
+test('parses inbound UDP IPv4 and outbound UDP IPv6', () => {
+  assert.deepEqual(parseTcpdumpLine('IP 203.0.113.5.53000 > 192.0.2.10.53: UDP, length 42', local), { clientIp: '203.0.113.5', localPort: 53, remotePort: 53000, direction: 'in', protocol: 'udp', bytes: 42 });
+  assert.deepEqual(parseTcpdumpLine('IP6 2001:db8::10.53 > 2001:db8::20.53000: UDP, length 77', local), { clientIp: '2001:db8::20', localPort: 53, remotePort: 53000, direction: 'out', protocol: 'udp', bytes: 77 });
+  assert.equal(extractProtocol('UDP, length 5'), 'udp');
+  assert.equal(extractProtocol('tcp 5'), 'tcp');
+});
+
 test('builds tcpdump commands with interface and sudo mode without starting a process', () => {
   let monitor = new TcpdumpMonitor({ tcpdumpPath: '/custom/tcpdump', interface: 'eth9', sudo: false }, () => {});
-  assert.deepEqual(monitor.buildCommand(), { command: '/custom/tcpdump', arguments: ['-i', 'eth9', '-n', '-l', '-q', 'tcp'] });
+  assert.deepEqual(monitor.buildCommand(), { command: '/custom/tcpdump', arguments: ['-i', 'eth9', '-n', '-l', '-q', 'tcp', 'or', 'udp'] });
   monitor = new TcpdumpMonitor({ tcpdumpPath: '/custom/tcpdump', interface: 'any', sudo: true }, () => {});
-  assert.deepEqual(monitor.buildCommand(), { command: 'sudo', arguments: ['-n', '/custom/tcpdump', '-i', 'any', '-n', '-l', '-q', 'tcp'] });
+  assert.deepEqual(monitor.buildCommand(), { command: 'sudo', arguments: ['-n', '/custom/tcpdump', '-i', 'any', '-n', '-l', '-q', 'tcp', 'or', 'udp'] });
 });

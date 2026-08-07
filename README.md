@@ -1,12 +1,14 @@
 # TrafficMap
 
-TrafficMap passively observes a server's TCP traffic and displays it on a geographic dashboard. It counts TCP payload, packets, and recent activity per remote address; it is not a proxy and does not read application logs.
+TrafficMap passively observes a server's TCP and UDP traffic and displays it on a geographic dashboard. It counts payload bytes, packets, and recent activity per remote address; it is not a proxy and does not read application logs.
 
 ## Actual behavior
 
 The Node.js process starts an HTTPS server and a WebSocket endpoint at `/ws`. Ordinary HTTPS requests receive `404`: `index.html`, `app.js`, `websocket-url.js`, and `styles.css` are separate static assets that must be published by a static web server. The frontend can be hosted at the domain root or in any subdirectory and connects directly to the agent port; no WebSocket reverse proxy or path rewriting is required.
 
-Capture covers all TCP ports; each dashboard selects the port to display. Bytes represent the payload reported by `tcpdump` (`tcp N`, with `length N` as a fallback), not the Ethernet/IP size. ACK packets without payload are ignored. Direction is determined by comparing endpoints with the server's local addresses.
+Capture continuously covers TCP and UDP on all ports. A dashboard initially displays all traffic and may add unique port filters for TCP, UDP, or both protocols. Filters belong to each WebSocket client and are applied by the agent before packets and snapshots are sent. Bytes represent the payload length reported by `tcpdump`, not the Ethernet/IP size. TCP ACK packets without payload are ignored. Direction is determined by comparing endpoints with the server's local addresses.
+
+Each active filter displays cumulative inbound and outbound byte counters from the time it was added. Removing and later re-adding a filter resets its counters. Filters are not persisted across page reloads.
 
 ## Requirements
 
@@ -29,7 +31,9 @@ On Windows, the file can be copied manually. `config.json` is local, excluded fr
 
 ## Configuration
 
-Edit the local `config.json`. `monitor.port` must be an integer between 1 and 65535; dashboard time intervals must be positive. The GeoIP cache path is resolved relative to the project root.
+Edit the local `config.json`. Dashboard time intervals must be positive. The GeoIP cache path is resolved relative to the project root.
+
+`monitor.port` and `monitor.protocol` are retained for configuration compatibility in version 1.1.0, but no longer determine initial dashboard traffic or the capture expression. They are deprecated candidates for a future breaking release; capture now always uses TCP and UDP on all ports.
 
 TLS is mandatory:
 
@@ -74,7 +78,7 @@ The `config.json` file remains local. If the example configuration gains new opt
 
 - does not inspect URLs, HTTP methods, response codes, or application requests;
 - does not decrypt HTTPS;
-- measures TCP payload rather than total network traffic;
+- measures transport payload rather than total network traffic;
 - application proxies, VPNs, or load balancers may hide the final client address;
 - IP geolocation is approximate and depends on the configured provider;
 - the frontend is not served directly by the Node.js process;

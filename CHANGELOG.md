@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-08-07
+
+### Added
+
+- Continuous UDP capture and deterministic IPv4/IPv6 UDP parsing alongside existing TCP support.
+- Per-dashboard port filters for TCP, UDP, or both protocols, with atomic WebSocket updates and agent-side filtering.
+- Cumulative inbound and outbound byte counters for each active filter.
+- Compact removable filter list with all-traffic mode when no filters are active.
+
+### Changed
+
+- Dashboards now start with all TCP and UDP traffic instead of a single selected TCP port.
+- Capture uses one continuous `tcp or udp` expression and does not restart when filters change.
+- Retained `monitor.port` and `monitor.protocol` for configuration compatibility although they no longer select initial traffic.
+
 ## [1.0.0] - 2026-08-06
 
 ### Added

@@ -1,9 +1,9 @@
 {
   "name": "trafficmap",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "TrafficMap passive full-page network traffic dashboard.",
+  "description": "TrafficMap passive TCP and UDP traffic dashboard with per-client filters.",
   "scripts": {
     "start": "node src/agent.js",
     "check": "node scripts/check-syntax.js",
