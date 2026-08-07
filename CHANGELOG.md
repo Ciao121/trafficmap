@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-08-07
+
+### Fixed
+
+- Made each filter removal button update the frontend state and send the complete remaining filter set to the agent.
+- Removed deleted filter counters immediately and restored all-traffic mode after removing the final filter.
+- Moved compact filter statistics to the bottom-right without covering the map attribution control.
+
 ## [1.1.0] - 2026-08-07
 
 ### Added

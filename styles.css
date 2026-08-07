@@ -223,9 +223,10 @@ input {
 .active-filters {
   position: absolute;
   z-index: 1000;
-  left: 14px;
-  bottom: 14px;
+  right: 14px;
+  bottom: 32px;
   display: grid;
+  justify-items: end;
   gap: 6px;
   max-width: calc(100vw - 28px);
 }

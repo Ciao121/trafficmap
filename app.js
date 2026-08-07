@@ -2,6 +2,11 @@ import {
   buildWebSocketUrl
 } from './websocket-url.js';
 
+import {
+  buildSetFiltersMessage,
+  removeFilterByPort
+} from './filter-controls.js';
+
 /* Must match dashboard.listenPort in config.json. */
 const WEBSOCKET_PORT = 3100;
 
@@ -2313,13 +2318,32 @@ function sendActivityWindow() {
 }
 
 function sendFilters() {
-  sendJson({
-    type:
-      'set_filters',
+  sendJson(
+    buildSetFiltersMessage(
+      activeFilters
+    )
+  );
+}
 
-    filters:
-      activeFilters.map(({ port, protocol }) => ({ port, protocol }))
-  });
+function removeActiveFilter(port) {
+  const remainingFilters =
+    removeFilterByPort(
+      activeFilters,
+      port
+    );
+
+  if (
+    remainingFilters.length ===
+    activeFilters.length
+  ) {
+    return;
+  }
+
+  activeFilters = remainingFilters;
+  ui.filterError.textContent = '';
+  renderFilters();
+  clearDisplayedTraffic();
+  sendFilters();
 }
 
 function renderFilters() {
@@ -2336,6 +2360,22 @@ function renderFilters() {
       <button type="button" data-remove-filter="${filter.port}" aria-label="Remove filter ${filter.port}">×</button>
     </div>
   `).join('');
+
+  for (
+    const button
+    of ui.activeFilters.querySelectorAll(
+      '[data-remove-filter]'
+    )
+  ) {
+    button.addEventListener(
+      'click',
+      () => {
+        removeActiveFilter(
+          button.dataset.removeFilter
+        );
+      }
+    );
+  }
 }
 
 function applyServerFilters(filters) {
@@ -2566,17 +2606,6 @@ ui.filterPort.addEventListener('keydown', (event) => {
     event.preventDefault();
     addFilter();
   }
-});
-
-ui.activeFilters.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-remove-filter]');
-  if (!button) return;
-  const port = Number(button.dataset.removeFilter);
-  activeFilters = activeFilters.filter((filter) => filter.port !== port);
-  ui.filterError.textContent = '';
-  renderFilters();
-  clearDisplayedTraffic();
-  sendFilters();
 });
 
 renderFilters();
