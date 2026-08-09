@@ -8,7 +8,7 @@ import {
   removeFilterByPort,
   shouldApplyServerFilters
 } from '../filter-controls.js';
-import { reconcileFilterCards } from '../filter-panel.js';
+import { FilterPanel } from '../filter-panel.js';
 import {
   applyFilterSet,
   countFilteredPacket,
@@ -193,30 +193,106 @@ class FakeDocument {
   }
 }
 
+function findByClass(root, className) {
+  const matches = [];
+  for (const child of root.children) {
+    if (child.className === className) matches.push(child);
+    matches.push(...findByClass(child, className));
+  }
+  return matches;
+}
+
+test('one panel owns every row through add, update, remove, and recreate', () => {
+  const document = new FakeDocument();
+  const host = new FakeElement(document, 'main');
+  const panel = new FilterPanel({
+    document,
+    host,
+    formatBytes: (bytes) => `${bytes} B`,
+    onRemove: () => {}
+  });
+  const assertPanelState = (panelCount, rowCount) => {
+    const panels = findByClass(host, 'filter-stats-panel');
+    const rows = findByClass(host, 'filter-stats-row');
+    assert.equal(panels.length, panelCount);
+    assert.equal(panels.length <= 1, true);
+    assert.equal(rows.length, rowCount);
+    assert.equal(
+      rows.every((row) => row.parentElement === panels[0]),
+      true
+    );
+    assert.equal(
+      rows.some((row) => row.parentElement === host),
+      false
+    );
+  };
+
+  assertPanelState(0, 0);
+
+  panel.render([{ port: 80, protocol: 'tcp' }]);
+  const firstPanel = panel.panel;
+  assertPanelState(1, 1);
+
+  panel.render([
+    { port: 80, protocol: 'tcp' },
+    { port: 443, protocol: 'tcp' }
+  ]);
+  assert.strictEqual(panel.panel, firstPanel);
+  assertPanelState(1, 2);
+
+  panel.render([
+    { port: 80, protocol: 'tcp' },
+    { port: 443, protocol: 'tcp' },
+    { port: 3306, protocol: 'tcp' }
+  ]);
+  assert.strictEqual(panel.ensurePanel(), firstPanel);
+  assertPanelState(1, 3);
+
+  panel.updateCounters(80, 1024, 2048);
+  panel.updateCounters(443, 4096, 8192);
+  assertPanelState(1, 3);
+
+  panel.render([
+    { port: 80, protocol: 'tcp' },
+    { port: 3306, protocol: 'tcp' }
+  ]);
+  assertPanelState(1, 2);
+
+  panel.render([{ port: 3306, protocol: 'tcp' }]);
+  assertPanelState(1, 1);
+
+  panel.render([]);
+  assert.equal(panel.panel, null);
+  assertPanelState(0, 0);
+
+  panel.render([{ port: 22, protocol: 'tcp' }]);
+  assert.notStrictEqual(panel.panel, firstPanel);
+  assertPanelState(1, 1);
+});
+
 test('repeated statistics updates preserve every removal button', () => {
   const document = new FakeDocument();
-  const container = new FakeElement(document, 'section');
-  const cards = new Map();
+  const host = new FakeElement(document, 'main');
   const removed = [];
   const filters = [
     { port: 443, protocol: 'tcp', bytesIn: 0, bytesOut: 0 },
     { port: 53, protocol: 'udp', bytesIn: 0, bytesOut: 0 },
     { port: 8080, protocol: 'both', bytesIn: 0, bytesOut: 0 }
   ];
-  const render = () => reconcileFilterCards({
-    container,
-    cards,
-    filters,
+  const panel = new FilterPanel({
+    document,
+    host,
     formatBytes: (bytes) => `${bytes} B`,
     onRemove: (port) => removed.push(port)
   });
+  const render = () => panel.render(filters);
 
   render();
   const originalElements = filters.map(
-    (filter) => cards.get(filter.port).element
+    (filter) => panel.rows.get(filter.port).element
   );
   const originalButtons = filters.map(
-    (filter) => cards.get(filter.port).removeButton
+    (filter) => panel.rows.get(filter.port).removeButton
   );
 
   for (let update = 1; update <= 20; update += 1) {
@@ -228,23 +304,23 @@ test('repeated statistics updates preserve every removal button', () => {
   }
 
   assert.deepEqual(
-    filters.map((filter) => cards.get(filter.port).element),
+    filters.map((filter) => panel.rows.get(filter.port).element),
     originalElements
   );
   assert.deepEqual(
-    filters.map((filter) => cards.get(filter.port).removeButton),
+    filters.map((filter) => panel.rows.get(filter.port).removeButton),
     originalButtons
   );
-  assert.equal(container.children.length, 3);
+  assert.equal(panel.panel.children.length, 3);
   assert.equal(new Set(
-    container.children.map((row) => row.parentElement)
+    panel.panel.children.map((row) => row.parentElement)
   ).size, 1);
   assert.equal(
-    container.children.every((row) => row.children.length === 5),
+    panel.panel.children.every((row) => row.children.length === 5),
     true
   );
   assert.equal(
-    container.children.every(
+    panel.panel.children.every(
       (row) => row.className === 'filter-stats-row'
     ),
     true
@@ -256,36 +332,36 @@ test('repeated statistics updates preserve every removal button', () => {
 
 test('removing one persistent row preserves the remaining rows and order', () => {
   const document = new FakeDocument();
-  const container = new FakeElement(document, 'section');
-  const cards = new Map();
-  const base = {
-    container,
-    cards,
+  const host = new FakeElement(document, 'main');
+  const panel = new FilterPanel({
+    document,
+    host,
     formatBytes: String,
     onRemove: () => {}
-  };
-
-  reconcileFilterCards({
-    ...base,
-    filters: [
-      { port: 443, protocol: 'tcp' },
-      { port: 53, protocol: 'udp' },
-      { port: 8080, protocol: 'both' }
-    ]
-  });
-  const first = cards.get(443).element;
-  const last = cards.get(8080).element;
-
-  reconcileFilterCards({
-    ...base,
-    filters: [
-      { port: 443, protocol: 'tcp' },
-      { port: 8080, protocol: 'both' }
-    ]
   });
 
-  assert.equal(cards.has(53), false);
-  assert.deepEqual(container.children, [first, last]);
+  panel.render([
+    { port: 443, protocol: 'tcp' },
+    { port: 53, protocol: 'udp' },
+    { port: 8080, protocol: 'both' }
+  ]);
+  const first = panel.rows.get(443).element;
+  const last = panel.rows.get(8080).element;
+
+  panel.render([
+    { port: 443, protocol: 'tcp' },
+    { port: 8080, protocol: 'both' }
+  ]);
+
+  assert.equal(panel.rows.has(53), false);
+  assert.deepEqual(panel.panel.children, [first, last]);
+
+  panel.render([
+    { port: 8080, protocol: 'both' },
+    { port: 443, protocol: 'tcp' }
+  ]);
+
+  assert.deepEqual(panel.panel.children, [last, first]);
 });
 
 test('Leaflet disables the visual zoom control without disabling map zoom', () => {
@@ -330,7 +406,7 @@ test('filter rows share one panel and fixed grid columns', () => {
   assert.match(css, /\.filter-stats-row \+ \.filter-stats-row\s*\{/);
 });
 
-test('markup contains one explicit statistics panel without legacy card classes', () => {
+test('markup delegates statistics panel ownership to the controller', () => {
   const markup = fs.readFileSync(
     new URL('../index.html', import.meta.url),
     'utf8'
@@ -342,9 +418,9 @@ test('markup contains one explicit statistics panel without legacy card classes'
 
   assert.equal(
     (markup.match(/class="filter-stats-panel"/g) || []).length,
-    1
+    0
   );
   assert.match(renderer, /className = 'filter-stats-row'/);
-  assert.doesNotMatch(markup, /class="active-filters"/);
-  assert.doesNotMatch(renderer, /className = 'active-filter'/);
+  assert.match(renderer, /className = 'filter-stats-panel'/);
+  assert.match(renderer, /ensurePanel\(\)/);
 });

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.5] - 2026-08-09
+
+### Fixed
+
+- Added one application-owned filter statistics panel controller with idempotent panel creation.
+- Reused the same panel when adding or updating rows and removed only the selected row.
+- Removed the empty panel after the final filter is deleted and recreated exactly one panel when filters return.
+
 ## [1.1.4] - 2026-08-09
 
 ### Fixed

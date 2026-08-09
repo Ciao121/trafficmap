@@ -11,7 +11,7 @@ import {
 } from './filter-controls.js';
 
 import {
-  reconcileFilterCards
+  FilterPanel
 } from './filter-panel.js';
 
 /* Must match dashboard.listenPort in config.json. */
@@ -98,9 +98,6 @@ const ui = {
 
   filterError:
     document.querySelector('#filter-error'),
-
-  activeFilters:
-    document.querySelector('#active-filters'),
 
   activityWindow:
     document.querySelector(
@@ -239,7 +236,12 @@ let activityWindowSeconds =
 
 let activeFilters = [];
 let pendingFilterSignature = null;
-const filterCards = new Map();
+const filterPanel = new FilterPanel({
+  document,
+  host: document.querySelector('#app'),
+  formatBytes,
+  onRemove: removeActiveFilter
+});
 
 ui.activityWindow.value =
   String(
@@ -2357,17 +2359,10 @@ function removeActiveFilter(port) {
 }
 
 function renderFilters() {
-  ui.activeFilters.hidden = activeFilters.length === 0;
   ui.filterMode.textContent = activeFilters.length
     ? `${activeFilters.length} filter${activeFilters.length === 1 ? '' : 's'}`
     : 'All ports';
-  reconcileFilterCards({
-    container: ui.activeFilters,
-    cards: filterCards,
-    filters: activeFilters,
-    formatBytes,
-    onRemove: removeActiveFilter
-  });
+  filterPanel.render(activeFilters);
 }
 
 function applyServerFilters(
