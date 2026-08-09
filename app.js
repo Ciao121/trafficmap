@@ -7,7 +7,8 @@ import {
   filterSelectionSignature,
   matchesSelectedFilters,
   removeFilterByPort,
-  shouldApplyServerFilters
+  shouldApplyServerFilters,
+  sumFilterTotals
 } from './filter-controls.js';
 
 import {
@@ -1783,14 +1784,7 @@ function clearDisplayedTraffic() {
   ui.mappedClients.textContent =
     '0';
 
-  ui.recentIn.textContent =
-    '0 B';
-
-  ui.recentOut.textContent =
-    '0 B';
-
-  ui.total.textContent =
-    '0 B';
+  updateFilterTotals();
 
   ui.empty.hidden =
     false;
@@ -1818,25 +1812,7 @@ function updateDashboard(snapshot) {
       totals.mappedClients
     ) || 0;
 
-  ui.recentIn.textContent =
-    formatBytes(
-      totals.recentBytesIn
-    );
-
-  ui.recentOut.textContent =
-    formatBytes(
-      totals.recentBytesOut
-    );
-
-  ui.total.textContent =
-    formatBytes(
-      Number(
-        totals.bytesIn || 0
-      ) +
-      Number(
-        totals.bytesOut || 0
-      )
-    );
+  updateFilterTotals();
 
   ui.empty.hidden =
     snapshot.clients.length > 0;
@@ -2363,6 +2339,21 @@ function renderFilters() {
     ? `${activeFilters.length} filter${activeFilters.length === 1 ? '' : 's'}`
     : 'All ports';
   filterPanel.render(activeFilters);
+  updateFilterTotals();
+}
+
+function updateFilterTotals() {
+  const totals =
+    sumFilterTotals(activeFilters);
+
+  ui.recentIn.textContent =
+    formatBytes(totals.bytesIn);
+
+  ui.recentOut.textContent =
+    formatBytes(totals.bytesOut);
+
+  ui.total.textContent =
+    formatBytes(totals.bytesTotal);
 }
 
 function applyServerFilters(

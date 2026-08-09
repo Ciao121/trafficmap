@@ -40,3 +40,26 @@ export function matchesSelectedFilters(filters, packet) {
       )
   );
 }
+
+export function sumFilterTotals(filters) {
+  return filters.reduce(
+    (totals, filter) => {
+      totals.bytesIn += Math.max(
+        0,
+        Number(filter.bytesIn) || 0
+      );
+      totals.bytesOut += Math.max(
+        0,
+        Number(filter.bytesOut) || 0
+      );
+      totals.bytesTotal =
+        totals.bytesIn + totals.bytesOut;
+      return totals;
+    },
+    {
+      bytesIn: 0,
+      bytesOut: 0,
+      bytesTotal: 0
+    }
+  );
+}

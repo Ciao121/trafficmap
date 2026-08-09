@@ -10,6 +10,8 @@ Capture continuously covers TCP and UDP on all ports. A dashboard initially disp
 
 Each active filter displays cumulative inbound and outbound byte counters from the time it was added. Removing and later re-adding a filter resets its counters. Filters are not persisted across page reloads.
 
+Dashboard inbound, outbound, and combined totals are always calculated from the cumulative counters of the currently active filters. Removing a filter removes its history from these totals immediately; with no active filters, all three totals are zero.
+
 ## Requirements
 
 - Linux for actual traffic capture;

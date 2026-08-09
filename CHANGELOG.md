@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.6] - 2026-08-09
+
+### Fixed
+
+- Calculated dashboard inbound, outbound, and combined totals exclusively from current filter counters.
+- Removed deleted filter history from totals immediately and reset totals to zero when no filters remain.
+- Prevented global or stale snapshot totals from replacing current monitored-port totals.
+
 ## [1.1.5] - 2026-08-09
 
 ### Fixed

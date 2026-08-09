@@ -6,7 +6,8 @@ import {
   filterSelectionSignature,
   matchesSelectedFilters,
   removeFilterByPort,
-  shouldApplyServerFilters
+  shouldApplyServerFilters,
+  sumFilterTotals
 } from '../filter-controls.js';
 import { FilterPanel } from '../filter-panel.js';
 import {
@@ -139,6 +140,105 @@ test('in-flight packets follow the optimistic remaining filter selection', () =>
     localPort: 22,
     protocol: 'tcp'
   }), true);
+});
+
+test('one filter total equals its cumulative counters', () => {
+  assert.deepEqual(
+    sumFilterTotals([
+      { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 }
+    ]),
+    { bytesIn: 10, bytesOut: 20, bytesTotal: 30 }
+  );
+});
+
+test('two filter totals are summed exactly', () => {
+  assert.deepEqual(
+    sumFilterTotals([
+      { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+      { port: 80, protocol: 'tcp', bytesIn: 2, bytesOut: 5 }
+    ]),
+    { bytesIn: 12, bytesOut: 25, bytesTotal: 37 }
+  );
+});
+
+test('TCP, UDP, and both counters contribute once each', () => {
+  assert.deepEqual(
+    sumFilterTotals([
+      { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+      { port: 53, protocol: 'udp', bytesIn: 1, bytesOut: 3 },
+      { port: 8080, protocol: 'both', bytesIn: 4, bytesOut: 6 }
+    ]),
+    { bytesIn: 15, bytesOut: 29, bytesTotal: 44 }
+  );
+});
+
+test('removing a high-traffic filter removes all of its history', () => {
+  const filters = [
+    { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+    { port: 80, protocol: 'tcp', bytesIn: 9_000_000, bytesOut: 8_000_000 },
+    { port: 53, protocol: 'udp', bytesIn: 1, bytesOut: 3 }
+  ];
+  const remaining = removeFilterByPort(filters, 80);
+
+  assert.deepEqual(
+    sumFilterTotals(remaining),
+    { bytesIn: 11, bytesOut: 23, bytesTotal: 34 }
+  );
+});
+
+test('removing all filters resets totals and re-adding starts from zero', () => {
+  assert.deepEqual(
+    sumFilterTotals([]),
+    { bytesIn: 0, bytesOut: 0, bytesTotal: 0 }
+  );
+
+  const readded = [
+    { port: 443, protocol: 'tcp', bytesIn: 0, bytesOut: 0 }
+  ];
+  assert.deepEqual(
+    sumFilterTotals(readded),
+    { bytesIn: 0, bytesOut: 0, bytesTotal: 0 }
+  );
+
+  readded[0].bytesIn = 7;
+  readded[0].bytesOut = 9;
+  assert.deepEqual(
+    sumFilterTotals(readded),
+    { bytesIn: 7, bytesOut: 9, bytesTotal: 16 }
+  );
+});
+
+test('realtime totals always follow current state and ignore stale snapshots', () => {
+  const current = [
+    { port: 53, protocol: 'udp', bytesIn: 0, bytesOut: 0 }
+  ];
+
+  for (let update = 1; update <= 20; update += 1) {
+    current[0].bytesIn = update;
+    current[0].bytesOut = update * 2;
+    assert.deepEqual(
+      sumFilterTotals(current),
+      {
+        bytesIn: update,
+        bytesOut: update * 2,
+        bytesTotal: update * 3
+      }
+    );
+  }
+
+  const pending = filterSelectionSignature(current);
+  const stale = [
+    { port: 443, protocol: 'tcp', bytesIn: 1000, bytesOut: 2000 },
+    ...current
+  ];
+  assert.equal(
+    shouldApplyServerFilters(pending, stale, false),
+    false
+  );
+  assert.deepEqual(
+    sumFilterTotals(current),
+    { bytesIn: 20, bytesOut: 40, bytesTotal: 60 }
+  );
 });
 
 class FakeElement {
