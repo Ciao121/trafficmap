@@ -92,7 +92,7 @@ test('filter statistics are anchored above the bottom-right attribution', () => 
     new URL('../styles.css', import.meta.url),
     'utf8'
   );
-  const rule = css.match(/\.active-filters\s*\{([^}]+)\}/)?.[1] || '';
+  const rule = css.match(/\.filter-stats-panel\s*\{([^}]+)\}/)?.[1] || '';
 
   assert.match(rule, /right:\s*14px/);
   assert.match(rule, /bottom:\s*32px/);
@@ -243,12 +243,18 @@ test('repeated statistics updates preserve every removal button', () => {
     container.children.every((row) => row.children.length === 5),
     true
   );
+  assert.equal(
+    container.children.every(
+      (row) => row.className === 'filter-stats-row'
+    ),
+    true
+  );
 
   originalButtons.forEach((button) => button.click());
   assert.deepEqual(removed, [443, 53, 8080]);
 });
 
-test('removing one persistent card preserves the remaining cards and order', () => {
+test('removing one persistent row preserves the remaining rows and order', () => {
   const document = new FakeDocument();
   const container = new FakeElement(document, 'section');
   const cards = new Map();
@@ -300,20 +306,45 @@ test('filter rows share one panel and fixed grid columns', () => {
     'utf8'
   );
   const panelRule = css.match(
-    /\.active-filters\s*\{([^}]+)\}/
+    /\.filter-stats-panel\s*\{([^}]+)\}/
   )?.[1] || '';
   const rowRule = css.match(
-    /\.active-filter\s*\{([^}]+)\}/
+    /\.filter-stats-row\s*\{([^}]+)\}/
   )?.[1] || '';
 
+  assert.match(panelRule, /width:\s*420px/);
+  assert.match(panelRule, /--filter-stats-columns:/);
   assert.match(panelRule, /background:/);
   assert.match(panelRule, /border:/);
   assert.match(panelRule, /border-radius:/);
   assert.match(
     rowRule,
-    /grid-template-columns:\s*46px\s+58px\s+78px\s+78px\s+26px/
+    /grid-template-columns:\s*var\(--filter-stats-columns\)/
   );
-  assert.doesNotMatch(rowRule, /background:/);
-  assert.doesNotMatch(rowRule, /border-radius:/);
-  assert.match(css, /\.active-filter \+ \.active-filter\s*\{/);
+  assert.match(rowRule, /width:\s*100%/);
+  assert.match(rowRule, /position:\s*static/);
+  assert.match(rowRule, /background:\s*none/);
+  assert.match(rowRule, /border:\s*0/);
+  assert.match(rowRule, /border-radius:\s*0/);
+  assert.doesNotMatch(rowRule, /fit-content/);
+  assert.match(css, /\.filter-stats-row \+ \.filter-stats-row\s*\{/);
+});
+
+test('markup contains one explicit statistics panel without legacy card classes', () => {
+  const markup = fs.readFileSync(
+    new URL('../index.html', import.meta.url),
+    'utf8'
+  );
+  const renderer = fs.readFileSync(
+    new URL('../filter-panel.js', import.meta.url),
+    'utf8'
+  );
+
+  assert.equal(
+    (markup.match(/class="filter-stats-panel"/g) || []).length,
+    1
+  );
+  assert.match(renderer, /className = 'filter-stats-row'/);
+  assert.doesNotMatch(markup, /class="active-filters"/);
+  assert.doesNotMatch(renderer, /className = 'active-filter'/);
 });

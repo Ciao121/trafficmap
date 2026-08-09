@@ -220,49 +220,65 @@ input {
   font-size: 10px;
 }
 
-.active-filters {
+.filter-stats-panel {
+  --filter-stats-columns:
+    64px
+    72px
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    36px;
+
   position: absolute;
   z-index: 1000;
   right: 14px;
   bottom: 32px;
-  display: grid;
-  width: min(330px, calc(100vw - 28px));
-  padding: 4px 6px;
+  display: block;
+  width: 420px;
+  max-width: calc(100vw - 28px);
+  padding: 4px 8px;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   background: rgba(7, 17, 31, 0.9);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(10px);
-  max-width: calc(100vw - 28px);
 }
 
-.active-filters[hidden] { display: none; }
+.filter-stats-panel[hidden] { display: none; }
 
-.active-filter {
+.filter-stats-row {
+  position: static;
   display: grid;
-  grid-template-columns: 46px 58px 78px 78px 26px;
+  grid-template-columns: var(--filter-stats-columns);
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   width: 100%;
-  padding: 6px 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
   font-size: 11px;
 }
 
-.active-filter + .active-filter {
+.filter-stats-row + .filter-stats-row {
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-.active-filter strong,
-.active-filter span {
+.filter-stats-row strong,
+.filter-stats-row span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.active-filter button {
-  width: 26px;
-  height: 26px;
+.filter-stats-row button {
+  justify-self: end;
+  width: 28px;
+  height: 28px;
   border: 0;
   border-radius: 7px;
   color: #fff;
@@ -270,13 +286,19 @@ input {
   cursor: pointer;
 }
 
-@media (max-width: 340px) {
-  .active-filters {
+@media (max-width: 480px) {
+  .filter-stats-panel {
+    --filter-stats-columns:
+      52px
+      60px
+      minmax(0, 1fr)
+      minmax(0, 1fr)
+      32px;
+
     width: calc(100vw - 28px);
   }
 
-  .active-filter {
-    grid-template-columns: 40px 52px 72px 72px 26px;
+  .filter-stats-row {
     gap: 4px;
     font-size: 10px;
   }

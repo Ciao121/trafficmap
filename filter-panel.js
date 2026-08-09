@@ -1,6 +1,6 @@
 function createFilterCard(document, port, onRemove) {
   const element = document.createElement('div');
-  element.className = 'active-filter';
+  element.className = 'filter-stats-row';
 
   const portValue = document.createElement('strong');
   portValue.textContent = String(port);

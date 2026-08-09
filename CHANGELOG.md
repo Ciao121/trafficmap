@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4] - 2026-08-09
+
+### Fixed
+
+- Replaced legacy filter card classes with an explicit single statistics panel and persistent row structure.
+- Defined one shared five-column layout contract on the parent panel for consistent row width and alignment.
+- Explicitly removed row-level card decoration while retaining only internal horizontal separators.
+
 ## [1.1.3] - 2026-08-07
 
 ### Changed
