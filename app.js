@@ -4,11 +4,14 @@ import {
 
 import {
   buildSetFiltersMessage,
+  countAllTrafficPacket,
+  createAllTrafficTotal,
   filterSelectionSignature,
   matchesSelectedFilters,
   removeFilterByPort,
+  selectTrafficTotal,
   shouldApplyServerFilters,
-  sumFilterTotals
+  transitionAllTrafficTotal
 } from './filter-controls.js';
 
 import {
@@ -236,6 +239,7 @@ let activityWindowSeconds =
   );
 
 let activeFilters = [];
+let allTrafficSessionTotal = createAllTrafficTotal();
 let pendingFilterSignature = null;
 const filterPanel = new FilterPanel({
   document,
@@ -2327,6 +2331,11 @@ function removeActiveFilter(port) {
     return;
   }
 
+  allTrafficSessionTotal = transitionAllTrafficTotal(
+    activeFilters,
+    remainingFilters,
+    allTrafficSessionTotal
+  );
   activeFilters = remainingFilters;
   ui.filterError.textContent = '';
   renderFilters();
@@ -2344,7 +2353,7 @@ function renderFilters() {
 
 function updateFilterTotals() {
   const totals =
-    sumFilterTotals(activeFilters);
+    selectTrafficTotal(activeFilters, allTrafficSessionTotal);
 
   ui.recentIn.textContent =
     formatBytes(totals.bytesIn);
@@ -2445,6 +2454,14 @@ function handleSocketMessage(rawData) {
       message
     )) {
       return;
+    }
+
+    if (activeFilters.length === 0) {
+      allTrafficSessionTotal = countAllTrafficPacket(
+        allTrafficSessionTotal,
+        message
+      );
+      updateFilterTotals();
     }
 
     const filter = activeFilters.find((item) => item.port === Number(message.localPort) && (item.protocol === 'both' || item.protocol === message.protocol));

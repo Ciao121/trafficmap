@@ -63,3 +63,51 @@ export function sumFilterTotals(filters) {
     }
   );
 }
+
+export function createAllTrafficTotal() {
+  return {
+    bytesIn: 0,
+    bytesOut: 0,
+    bytesTotal: 0,
+    lastSequence: 0
+  };
+}
+
+export function countAllTrafficPacket(total, packet) {
+  const sequence = Number(packet?.sequence) || 0;
+
+  if (sequence > 0 && sequence <= total.lastSequence) {
+    return total;
+  }
+
+  const bytes = Math.max(0, Number(packet?.bytes) || 0);
+  const next = {
+    ...total,
+    lastSequence: sequence > 0 ? sequence : total.lastSequence
+  };
+
+  if (packet?.direction === 'out') next.bytesOut += bytes;
+  else next.bytesIn += bytes;
+  next.bytesTotal = next.bytesIn + next.bytesOut;
+  return next;
+}
+
+export function selectTrafficTotal(filters, allTrafficTotal) {
+  return filters.length
+    ? sumFilterTotals(filters)
+    : {
+        bytesIn: allTrafficTotal.bytesIn,
+        bytesOut: allTrafficTotal.bytesOut,
+        bytesTotal: allTrafficTotal.bytesTotal
+      };
+}
+
+export function transitionAllTrafficTotal(
+  previousFilters,
+  nextFilters,
+  allTrafficTotal
+) {
+  return previousFilters.length > 0 && nextFilters.length === 0
+    ? createAllTrafficTotal()
+    : allTrafficTotal;
+}

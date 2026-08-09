@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.7] - 2026-08-09
+
+### Fixed
+
+- Restored cumulative TCP and UDP totals while the dashboard is in all-traffic mode.
+- Kept filtered totals derived exclusively from active filter counters and reset all-traffic totals at each mode transition.
+- Counted only incremental packet events in all-traffic sessions, preventing snapshots and duplicate packet sequences from reintroducing traffic.
+
 ## [1.1.6] - 2026-08-09
 
 ### Fixed

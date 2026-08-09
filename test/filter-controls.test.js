@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   buildSetFiltersMessage,
+  countAllTrafficPacket,
+  createAllTrafficTotal,
   filterSelectionSignature,
   matchesSelectedFilters,
   removeFilterByPort,
+  selectTrafficTotal,
   shouldApplyServerFilters,
-  sumFilterTotals
+  sumFilterTotals,
+  transitionAllTrafficTotal
 } from '../filter-controls.js';
 import { FilterPanel } from '../filter-panel.js';
 import {
@@ -239,6 +243,185 @@ test('realtime totals always follow current state and ignore stale snapshots', (
     sumFilterTotals(current),
     { bytesIn: 20, bytesOut: 40, bytesTotal: 60 }
   );
+});
+
+test('all-traffic mode opens at zero and counts its first packet', () => {
+  const initial = createAllTrafficTotal();
+  assert.deepEqual(selectTrafficTotal([], initial), {
+    bytesIn: 0,
+    bytesOut: 0,
+    bytesTotal: 0
+  });
+
+  const counted = countAllTrafficPacket(initial, {
+    sequence: 1,
+    protocol: 'tcp',
+    direction: 'in',
+    bytes: 12
+  });
+  assert.deepEqual(selectTrafficTotal([], counted), {
+    bytesIn: 12,
+    bytesOut: 0,
+    bytesTotal: 12
+  });
+});
+
+test('multiple all-traffic packets accumulate inbound and outbound bytes', () => {
+  let total = createAllTrafficTotal();
+  total = countAllTrafficPacket(total, {
+    sequence: 1,
+    direction: 'in',
+    bytes: 10
+  });
+  total = countAllTrafficPacket(total, {
+    sequence: 2,
+    direction: 'out',
+    bytes: 20
+  });
+  total = countAllTrafficPacket(total, {
+    sequence: 3,
+    direction: 'in',
+    bytes: 5
+  });
+  assert.deepEqual(selectTrafficTotal([], total), {
+    bytesIn: 15,
+    bytesOut: 20,
+    bytesTotal: 35
+  });
+});
+
+test('entering filtered mode discards the displayed all-traffic total', () => {
+  const allTraffic = countAllTrafficPacket(createAllTrafficTotal(), {
+    sequence: 1,
+    direction: 'in',
+    bytes: 100
+  });
+  const filters = [
+    { port: 443, protocol: 'tcp', bytesIn: 0, bytesOut: 0 }
+  ];
+  assert.deepEqual(selectTrafficTotal(filters, allTraffic), {
+    bytesIn: 0,
+    bytesOut: 0,
+    bytesTotal: 0
+  });
+});
+
+test('filtered mode continues to use only active filter counters', () => {
+  const allTraffic = {
+    bytesIn: 1000,
+    bytesOut: 2000,
+    bytesTotal: 3000,
+    lastSequence: 10
+  };
+  const filters = [
+    { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+    { port: 53, protocol: 'udp', bytesIn: 2, bytesOut: 3 }
+  ];
+  assert.deepEqual(selectTrafficTotal(filters, allTraffic), {
+    bytesIn: 12,
+    bytesOut: 23,
+    bytesTotal: 35
+  });
+});
+
+test('removing the last filter starts a zero all-traffic session', () => {
+  const previous = [{ port: 443, protocol: 'tcp' }];
+  const historical = {
+    bytesIn: 100,
+    bytesOut: 250,
+    bytesTotal: 350,
+    lastSequence: 9
+  };
+  const reset = transitionAllTrafficTotal(previous, [], historical);
+  assert.deepEqual(reset, createAllTrafficTotal());
+  assert.deepEqual(selectTrafficTotal([], reset), {
+    bytesIn: 0,
+    bytesOut: 0,
+    bytesTotal: 0
+  });
+});
+
+test('traffic after the final filter removal grows the new session', () => {
+  const reset = transitionAllTrafficTotal(
+    [{ port: 443, protocol: 'tcp' }],
+    [],
+    { bytesIn: 100, bytesOut: 200, bytesTotal: 300, lastSequence: 4 }
+  );
+  const counted = countAllTrafficPacket(reset, {
+    sequence: 5,
+    direction: 'out',
+    bytes: 7
+  });
+  assert.deepEqual(selectTrafficTotal([], counted), {
+    bytesIn: 0,
+    bytesOut: 7,
+    bytesTotal: 7
+  });
+});
+
+test('each second all-traffic session starts from zero', () => {
+  const filter = [{ port: 80, protocol: 'both' }];
+  let total = countAllTrafficPacket(createAllTrafficTotal(), {
+    sequence: 1,
+    direction: 'in',
+    bytes: 30
+  });
+  total = transitionAllTrafficTotal([], filter, total);
+  total = transitionAllTrafficTotal(filter, [], total);
+  assert.deepEqual(total, createAllTrafficTotal());
+});
+
+test('packet sequences are counted once and snapshots never contribute', () => {
+  let total = createAllTrafficTotal();
+  const packet = { sequence: 7, direction: 'in', bytes: 40 };
+  total = countAllTrafficPacket(total, packet);
+  const duplicate = countAllTrafficPacket(total, packet);
+  const snapshot = {
+    totals: { bytesIn: 900, bytesOut: 800 }
+  };
+  assert.strictEqual(duplicate, total);
+  assert.deepEqual(selectTrafficTotal([], duplicate, snapshot), {
+    bytesIn: 40,
+    bytesOut: 0,
+    bytesTotal: 40
+  });
+});
+
+test('stale snapshots cannot restore a previous all-traffic total', () => {
+  const reset = transitionAllTrafficTotal(
+    [{ port: 53, protocol: 'udp' }],
+    [],
+    { bytesIn: 500, bytesOut: 600, bytesTotal: 1100, lastSequence: 20 }
+  );
+  const staleSnapshot = {
+    totals: { bytesIn: 500, bytesOut: 600 }
+  };
+  assert.deepEqual(selectTrafficTotal([], reset, staleSnapshot), {
+    bytesIn: 0,
+    bytesOut: 0,
+    bytesTotal: 0
+  });
+});
+
+test('TCP and UDP packets both contribute to all-traffic totals', () => {
+  let total = createAllTrafficTotal();
+  total = countAllTrafficPacket(total, {
+    sequence: 1,
+    protocol: 'tcp',
+    direction: 'in',
+    bytes: 11
+  });
+  total = countAllTrafficPacket(total, {
+    sequence: 2,
+    protocol: 'udp',
+    direction: 'out',
+    bytes: 13
+  });
+  assert.deepEqual(selectTrafficTotal([], total), {
+    bytesIn: 11,
+    bytesOut: 13,
+    bytesTotal: 24
+  });
 });
 
 class FakeElement {
