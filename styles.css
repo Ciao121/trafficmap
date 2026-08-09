@@ -226,8 +226,13 @@ input {
   right: 14px;
   bottom: 32px;
   display: grid;
-  justify-items: end;
-  gap: 6px;
+  width: min(330px, calc(100vw - 28px));
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(7, 17, 31, 0.9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
   max-width: calc(100vw - 28px);
 }
 
@@ -235,19 +240,25 @@ input {
 
 .active-filter {
   display: grid;
-  grid-template-columns: 52px 70px auto auto 28px;
+  grid-template-columns: 46px 58px 78px 78px 26px;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9px;
-  background: rgba(7, 17, 31, 0.9);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(10px);
+  gap: 5px;
+  width: 100%;
+  padding: 6px 2px;
   font-size: 11px;
 }
 
-.active-filter span { white-space: nowrap; }
+.active-filter + .active-filter {
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.active-filter strong,
+.active-filter span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .active-filter button {
   width: 26px;
@@ -257,6 +268,18 @@ input {
   color: #fff;
   background: rgba(255, 100, 100, 0.25);
   cursor: pointer;
+}
+
+@media (max-width: 340px) {
+  .active-filters {
+    width: calc(100vw - 28px);
+  }
+
+  .active-filter {
+    grid-template-columns: 40px 52px 72px 72px 26px;
+    gap: 4px;
+    font-size: 10px;
+  }
 }
 
 .toolbar-stats {

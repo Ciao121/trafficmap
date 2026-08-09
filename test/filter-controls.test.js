@@ -235,6 +235,14 @@ test('repeated statistics updates preserve every removal button', () => {
     filters.map((filter) => cards.get(filter.port).removeButton),
     originalButtons
   );
+  assert.equal(container.children.length, 3);
+  assert.equal(new Set(
+    container.children.map((row) => row.parentElement)
+  ).size, 1);
+  assert.equal(
+    container.children.every((row) => row.children.length === 5),
+    true
+  );
 
   originalButtons.forEach((button) => button.click());
   assert.deepEqual(removed, [443, 53, 8080]);
@@ -284,4 +292,28 @@ test('Leaflet disables the visual zoom control without disabling map zoom', () =
   assert.doesNotMatch(source, /L\.control\.zoom\s*\(/);
   assert.doesNotMatch(source, /scrollWheelZoom:\s*false/);
   assert.doesNotMatch(source, /touchZoom:\s*false/);
+});
+
+test('filter rows share one panel and fixed grid columns', () => {
+  const css = fs.readFileSync(
+    new URL('../styles.css', import.meta.url),
+    'utf8'
+  );
+  const panelRule = css.match(
+    /\.active-filters\s*\{([^}]+)\}/
+  )?.[1] || '';
+  const rowRule = css.match(
+    /\.active-filter\s*\{([^}]+)\}/
+  )?.[1] || '';
+
+  assert.match(panelRule, /background:/);
+  assert.match(panelRule, /border:/);
+  assert.match(panelRule, /border-radius:/);
+  assert.match(
+    rowRule,
+    /grid-template-columns:\s*46px\s+58px\s+78px\s+78px\s+26px/
+  );
+  assert.doesNotMatch(rowRule, /background:/);
+  assert.doesNotMatch(rowRule, /border-radius:/);
+  assert.match(css, /\.active-filter \+ \.active-filter\s*\{/);
 });

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-08-07
+
+### Changed
+
+- Combined active filter statistics into one compact bottom-right panel with one persistent row per port.
+- Aligned port, protocol, inbound, outbound, and removal controls on fixed CSS Grid columns.
+- Replaced independent card styling with a shared panel background and subtle row separators.
+
 ## [1.1.2] - 2026-08-07
 
 ### Fixed
