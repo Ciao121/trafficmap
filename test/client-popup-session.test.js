@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   ClientPopupSession,
-  clientIdentity
+  POPUP_SESSION_STATE,
+  clientIdentity,
+  transitionPopupToDetail
 } from '../client-popup-session.js';
 
 const client = (
@@ -98,7 +100,7 @@ test('selection uses a stable client identity instead of a row index', () => {
   assert.equal(selected.ip, '8.8.8.8');
   assert.equal(selected.protocol, 'udp');
   assert.equal(selected.localPort, 443);
-  assert.equal(session.mode, 'client');
+  assert.equal(session.mode, POPUP_SESSION_STATE.DETAIL);
   assert.equal(session.select('[1]'), null);
 });
 
@@ -139,6 +141,8 @@ test('clients at the same coordinates remain individually selectable', () => {
     session.select(clientIdentity(first)).ip,
     '1.1.1.1'
   );
+  session.close();
+  session.open([first, second]);
   assert.equal(
     session.select(clientIdentity(second)).ip,
     '8.8.8.8'
@@ -157,7 +161,7 @@ test('single-IP and selected multi-IP details use the same renderer', () => {
   );
   assert.match(
     source,
-    /setPopupContent\(\s*renderClientPopup\(client\)/
+    /render:\s*renderClientPopup/
   );
   assert.equal(
     (source.match(/function renderClientPopup/g) || []).length,
@@ -167,17 +171,17 @@ test('single-IP and selected multi-IP details use the same renderer', () => {
 
 test('selection replaces content on the existing marker popup', () => {
   const source = fs.readFileSync(
-    new URL('../app.js', import.meta.url),
+    new URL('../client-popup-session.js', import.meta.url),
     'utf8'
   );
 
   assert.match(
     source,
-    /entry\.marker\.setPopupContent\(\s*renderClientPopup\(client\)/
+    /const popup = marker\.getPopup\(\)/
   );
-  assert.doesNotMatch(
+  assert.match(
     source,
-    /L\.popup\([\s\S]*renderClientPopup/
+    /popup\.setContent\(render\(client\)\)/
   );
 });
 
@@ -187,9 +191,168 @@ test('single-IP popup behavior remains non-selectable', () => {
   const snapshot = session.open([onlyClient]);
 
   assert.equal(snapshot.length, 1);
-  assert.equal(session.mode, 'client');
+  assert.equal(session.mode, POPUP_SESSION_STATE.DETAIL);
   assert.deepEqual(
-    session.select(clientIdentity(onlyClient)),
+    session.selectedClient,
     onlyClient
   );
+});
+
+class FakePopup {
+  constructor() {
+    this.content = 'group';
+    this.contentUpdates = 0;
+  }
+
+  setContent(content) {
+    this.content = content;
+    this.contentUpdates += 1;
+  }
+}
+
+class FakeMarker {
+  constructor() {
+    this.popup = new FakePopup();
+    this.open = true;
+    this.closeEvents = 0;
+    this.iconUpdates = 0;
+  }
+
+  getPopup() {
+    return this.popup;
+  }
+
+  isPopupOpen() {
+    return this.open;
+  }
+
+  closePopup() {
+    this.open = false;
+    this.closeEvents += 1;
+  }
+
+  setIcon() {
+    this.iconUpdates += 1;
+  }
+}
+
+function clickEvent() {
+  return {
+    defaultPrevented: false,
+    propagationStopped: false,
+    preventDefault() {
+      this.defaultPrevented = true;
+    },
+    stopPropagation() {
+      this.propagationStopped = true;
+    }
+  };
+}
+
+function openGroupLifecycle() {
+  const clients = [client('1.1.1.1'), client('8.8.8.8')];
+  const session = new ClientPopupSession();
+  const marker = new FakeMarker();
+  session.openGroup(clients);
+  return { clients, session, marker };
+}
+
+test('group click transitions to detail without closing the existing popup', () => {
+  const { clients, session, marker } = openGroupLifecycle();
+  const event = clickEvent();
+  let detached = 0;
+
+  const selected = transitionPopupToDetail({
+    event,
+    identity: clientIdentity(clients[1]),
+    session,
+    marker,
+    render: ({ ip }) => `detail:${ip}`,
+    detachGroupListener: () => {
+      detached += 1;
+    }
+  });
+
+  assert.equal(selected.ip, '8.8.8.8');
+  assert.equal(session.mode, POPUP_SESSION_STATE.DETAIL);
+  assert.equal(marker.popup.content, 'detail:8.8.8.8');
+  assert.equal(marker.isPopupOpen(), true);
+  assert.equal(marker.closeEvents, 0);
+  assert.equal(detached, 1);
+});
+
+test('group click propagation cannot trigger Leaflet map popup cleanup', () => {
+  const { clients, session, marker } = openGroupLifecycle();
+  const event = clickEvent();
+
+  transitionPopupToDetail({
+    event,
+    identity: clientIdentity(clients[0]),
+    session,
+    marker,
+    render: ({ ip }) => ip,
+    detachGroupListener: () => {}
+  });
+
+  if (!event.propagationStopped) {
+    marker.closePopup();
+    session.close();
+  }
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(event.propagationStopped, true);
+  assert.equal(marker.closeEvents, 0);
+  assert.equal(session.mode, POPUP_SESSION_STATE.DETAIL);
+});
+
+test('realtime snapshots and marker updates preserve detail lifecycle', () => {
+  const { clients, session, marker } = openGroupLifecycle();
+  transitionPopupToDetail({
+    event: clickEvent(),
+    identity: clientIdentity(clients[0]),
+    session,
+    marker,
+    render: ({ ip }) => ip,
+    detachGroupListener: () => {}
+  });
+  const content = marker.popup.content;
+
+  for (let update = 0; update < 20; update += 1) {
+    marker.setIcon();
+    if (!session.isOpen()) {
+      marker.popup.setContent('group refresh');
+    }
+  }
+
+  assert.equal(marker.iconUpdates, 20);
+  assert.equal(marker.popup.contentUpdates, 1);
+  assert.equal(marker.popup.content, content);
+  assert.equal(marker.isPopupOpen(), true);
+  assert.equal(session.mode, POPUP_SESSION_STATE.DETAIL);
+});
+
+test('explicit close cleans detail and a later group popup can reopen', () => {
+  const { clients, session, marker } = openGroupLifecycle();
+  transitionPopupToDetail({
+    event: clickEvent(),
+    identity: clientIdentity(clients[0]),
+    session,
+    marker,
+    render: ({ ip }) => ip,
+    detachGroupListener: () => {}
+  });
+
+  marker.closePopup();
+  session.close();
+  assert.equal(marker.closeEvents, 1);
+  assert.equal(session.mode, POPUP_SESSION_STATE.CLOSED);
+  assert.equal(session.clients, null);
+
+  marker.open = true;
+  const reopened = session.openGroup([
+    ...clients,
+    client('9.9.9.9')
+  ]);
+  assert.equal(session.mode, POPUP_SESSION_STATE.GROUP);
+  assert.equal(reopened.length, 3);
 });

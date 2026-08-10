@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-08-10
+
+### Fixed
+
+- Kept the single-IP detail popup open when selecting a client from a multi-IP popup.
+- Isolated group-to-detail click handling from Leaflet map click propagation and preserved explicit popup lifecycle state across real-time marker updates.
+
 ## [1.3.0] - 2026-08-10
 
 ### Fixed

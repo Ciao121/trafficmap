@@ -20,7 +20,9 @@ import {
 
 import {
   ClientPopupSession,
-  clientIdentity
+  POPUP_SESSION_STATE,
+  clientIdentity,
+  transitionPopupToDetail
 } from './client-popup-session.js';
 
 /* Must match dashboard.listenPort in config.json. */
@@ -882,26 +884,43 @@ function handleClientPopupClick(
     return;
   }
 
-  const client = entry.popupSession.select(
-    row.dataset.clientKey
-  );
+  transitionPopupToDetail({
+    event,
+    identity: row.dataset.clientKey,
+    session: entry.popupSession,
+    marker: entry.marker,
+    render: renderClientPopup,
+    detachGroupListener: () =>
+      detachGroupPopupClickHandler(entry)
+  });
+}
 
-  if (!client) {
-    return;
+function detachGroupPopupClickHandler(entry) {
+  if (
+    entry.popupElement &&
+    entry.popupClickHandler
+  ) {
+    entry.popupElement.removeEventListener(
+      'click',
+      entry.popupClickHandler
+    );
   }
 
-  entry.marker.setPopupContent(
-    renderClientPopup(client)
-  );
+  entry.popupClickHandler = null;
 }
 
 function attachClientPopupEvents(entry) {
   entry.marker.on(
     'popupopen',
     (event) => {
-      entry.popupSession.open(
-        entry.group.clients
-      );
+      if (
+        entry.popupSession.mode ===
+        POPUP_SESSION_STATE.CLOSED
+      ) {
+        entry.popupSession.open(
+          entry.group.clients
+        );
+      }
 
       const element =
         event.popup.getElement();
@@ -911,6 +930,14 @@ function attachClientPopupEvents(entry) {
       }
 
       entry.popupElement = element;
+
+      if (
+        entry.popupSession.mode !==
+        POPUP_SESSION_STATE.GROUP
+      ) {
+        return;
+      }
+
       entry.popupClickHandler =
         (clickEvent) =>
           handleClientPopupClick(
@@ -928,15 +955,7 @@ function attachClientPopupEvents(entry) {
   entry.marker.on(
     'popupclose',
     () => {
-      if (
-        entry.popupElement &&
-        entry.popupClickHandler
-      ) {
-        entry.popupElement.removeEventListener(
-          'click',
-          entry.popupClickHandler
-        );
-      }
+      detachGroupPopupClickHandler(entry);
 
       entry.popupElement = null;
       entry.popupClickHandler = null;
