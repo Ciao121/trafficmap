@@ -327,7 +327,7 @@ export class TrafficStore {
     ) {
       if (filters.length && !filters.some((filter) =>
         filter.port === client.localPort &&
-        (filter.protocol === 'both' || filter.protocol === client.protocol))) {
+        filter.protocol === client.protocol)) {
         continue;
       }
 

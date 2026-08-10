@@ -5,9 +5,10 @@ import {
   buildSetFiltersMessage,
   countAllTrafficPacket,
   createAllTrafficTotal,
+  filterKey,
   filterSelectionSignature,
   matchesSelectedFilters,
-  removeFilterByPort,
+  removeFilter,
   selectTrafficTotal,
   shouldApplyServerFilters,
   sumFilterTotals,
@@ -28,13 +29,35 @@ test('removing a filter updates UI state and excludes it from the next payload',
     { port: 53, protocol: 'udp', bytesIn: 30, bytesOut: 40 }
   ];
 
-  const remaining = removeFilterByPort(filters, 443);
+  const remaining = removeFilter(filters, 443, 'tcp');
 
   assert.deepEqual(remaining, [filters[1]]);
   assert.deepEqual(buildSetFiltersMessage(remaining), {
     type: 'set_filters',
     filters: [{ port: 53, protocol: 'udp' }]
   });
+});
+
+test('WebSocket payload keeps TCP and UDP pairs on the same port', () => {
+  assert.deepEqual(buildSetFiltersMessage([
+    { port: 443, protocol: 'tcp', bytesIn: 1, bytesOut: 2 },
+    { port: 443, protocol: 'udp', bytesIn: 3, bytesOut: 4 }
+  ]), {
+    type: 'set_filters',
+    filters: [
+      { port: 443, protocol: 'tcp' },
+      { port: 443, protocol: 'udp' }
+    ]
+  });
+});
+
+test('removing one pair preserves the other protocol on the same port', () => {
+  const filters = [
+    { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+    { port: 443, protocol: 'udp', bytesIn: 30, bytesOut: 40 }
+  ];
+  assert.deepEqual(removeFilter(filters, 443, 'tcp'), [filters[1]]);
+  assert.deepEqual(removeFilter(filters, 443, 'udp'), [filters[0]]);
 });
 
 test('the agent stops removed-only traffic and retains the remaining filter', () => {
@@ -51,7 +74,7 @@ test('the agent stops removed-only traffic and retains the remaining filter', ()
   });
 
   const payload = buildSetFiltersMessage(
-    removeFilterByPort(serializeFilters(state), 443)
+    removeFilter(serializeFilters(state), 443, 'tcp')
   );
   const result = validateFilters(payload.filters);
   applyFilterSet(state, result.filters);
@@ -64,7 +87,7 @@ test('the agent stops removed-only traffic and retains the remaining filter', ()
     localPort: 53,
     protocol: 'udp'
   }), true);
-  assert.equal(state.filterCounters.has(443), false);
+  assert.equal(state.filterCounters.has(filterKey(443, 'tcp')), false);
   assert.deepEqual(serializeFilters(state), [
     { port: 53, protocol: 'udp', bytesIn: 0, bytesOut: 0 }
   ]);
@@ -75,7 +98,7 @@ test('removing the final filter sends an empty set and restores all traffic', ()
   applyFilterSet(state, [{ port: 443, protocol: 'tcp' }]);
 
   const payload = buildSetFiltersMessage(
-    removeFilterByPort(serializeFilters(state), 443)
+    removeFilter(serializeFilters(state), 443, 'tcp')
   );
   const result = validateFilters(payload.filters);
   applyFilterSet(state, result.filters);
@@ -125,7 +148,7 @@ test('in-flight snapshots cannot restore a pending filter selection', () => {
 test('in-flight packets follow the optimistic remaining filter selection', () => {
   const filters = [
     { port: 53, protocol: 'udp' },
-    { port: 8080, protocol: 'both' }
+    { port: 8080, protocol: 'tcp' }
   ];
 
   assert.equal(matchesSelectedFilters(filters, {
@@ -165,12 +188,23 @@ test('two filter totals are summed exactly', () => {
   );
 });
 
-test('TCP, UDP, and both counters contribute once each', () => {
+test('same-port TCP and UDP pairs both contribute to filtered totals', () => {
+  assert.deepEqual(sumFilterTotals([
+    { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+    { port: 443, protocol: 'udp', bytesIn: 2, bytesOut: 1 }
+  ]), {
+    bytesIn: 12,
+    bytesOut: 21,
+    bytesTotal: 33
+  });
+});
+
+test('TCP and UDP filter pairs contribute once each', () => {
   assert.deepEqual(
     sumFilterTotals([
       { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
       { port: 53, protocol: 'udp', bytesIn: 1, bytesOut: 3 },
-      { port: 8080, protocol: 'both', bytesIn: 4, bytesOut: 6 }
+      { port: 8080, protocol: 'tcp', bytesIn: 4, bytesOut: 6 }
     ]),
     { bytesIn: 15, bytesOut: 29, bytesTotal: 44 }
   );
@@ -182,7 +216,7 @@ test('removing a high-traffic filter removes all of its history', () => {
     { port: 80, protocol: 'tcp', bytesIn: 9_000_000, bytesOut: 8_000_000 },
     { port: 53, protocol: 'udp', bytesIn: 1, bytesOut: 3 }
   ];
-  const remaining = removeFilterByPort(filters, 80);
+  const remaining = removeFilter(filters, 80, 'tcp');
 
   assert.deepEqual(
     sumFilterTotals(remaining),
@@ -360,7 +394,7 @@ test('traffic after the final filter removal grows the new session', () => {
 });
 
 test('each second all-traffic session starts from zero', () => {
-  const filter = [{ port: 80, protocol: 'both' }];
+  const filter = [{ port: 80, protocol: 'tcp' }];
   let total = countAllTrafficPacket(createAllTrafficTotal(), {
     sequence: 1,
     direction: 'in',
@@ -531,8 +565,8 @@ test('one panel owns every row through add, update, remove, and recreate', () =>
   assert.strictEqual(panel.ensurePanel(), firstPanel);
   assertPanelState(1, 3);
 
-  panel.updateCounters(80, 1024, 2048);
-  panel.updateCounters(443, 4096, 8192);
+  panel.updateCounters(80, 'tcp', 1024, 2048);
+  panel.updateCounters(443, 'tcp', 4096, 8192);
   assertPanelState(1, 3);
 
   panel.render([
@@ -560,22 +594,22 @@ test('repeated statistics updates preserve every removal button', () => {
   const filters = [
     { port: 443, protocol: 'tcp', bytesIn: 0, bytesOut: 0 },
     { port: 53, protocol: 'udp', bytesIn: 0, bytesOut: 0 },
-    { port: 8080, protocol: 'both', bytesIn: 0, bytesOut: 0 }
+    { port: 8080, protocol: 'tcp', bytesIn: 0, bytesOut: 0 }
   ];
   const panel = new FilterPanel({
     document,
     host,
     formatBytes: (bytes) => `${bytes} B`,
-    onRemove: (port) => removed.push(port)
+    onRemove: (port, protocol) => removed.push(filterKey(port, protocol))
   });
   const render = () => panel.render(filters);
 
   render();
   const originalElements = filters.map(
-    (filter) => panel.rows.get(filter.port).element
+    (filter) => panel.rows.get(filterKey(filter.port, filter.protocol)).element
   );
   const originalButtons = filters.map(
-    (filter) => panel.rows.get(filter.port).removeButton
+    (filter) => panel.rows.get(filterKey(filter.port, filter.protocol)).removeButton
   );
 
   for (let update = 1; update <= 20; update += 1) {
@@ -587,11 +621,11 @@ test('repeated statistics updates preserve every removal button', () => {
   }
 
   assert.deepEqual(
-    filters.map((filter) => panel.rows.get(filter.port).element),
+    filters.map((filter) => panel.rows.get(filterKey(filter.port, filter.protocol)).element),
     originalElements
   );
   assert.deepEqual(
-    filters.map((filter) => panel.rows.get(filter.port).removeButton),
+    filters.map((filter) => panel.rows.get(filterKey(filter.port, filter.protocol)).removeButton),
     originalButtons
   );
   assert.equal(panel.panel.children.length, 3);
@@ -610,7 +644,43 @@ test('repeated statistics updates preserve every removal button', () => {
   );
 
   originalButtons.forEach((button) => button.click());
-  assert.deepEqual(removed, [443, 53, 8080]);
+  assert.deepEqual(removed, ['443:tcp', '53:udp', '8080:tcp']);
+});
+
+test('same-port protocols own distinct persistent rows and removal controls', () => {
+  const document = new FakeDocument();
+  const host = new FakeElement(document, 'main');
+  const removed = [];
+  const panel = new FilterPanel({
+    document,
+    host,
+    formatBytes: (bytes) => `${bytes} B`,
+    onRemove: (port, protocol) => removed.push(filterKey(port, protocol))
+  });
+  const filters = [
+    { port: 443, protocol: 'tcp', bytesIn: 10, bytesOut: 20 },
+    { port: 443, protocol: 'udp', bytesIn: 30, bytesOut: 40 }
+  ];
+
+  panel.render(filters);
+  const tcpRow = panel.rows.get('443:tcp');
+  const udpRow = panel.rows.get('443:udp');
+  assert.notStrictEqual(tcpRow.element, udpRow.element);
+  assert.equal(panel.panel.children.length, 2);
+  assert.equal(tcpRow.element.dataset.filterKey, '443:tcp');
+  assert.equal(udpRow.element.dataset.filterKey, '443:udp');
+
+  panel.updateCounters(443, 'tcp', 50, 60);
+  assert.equal(tcpRow.bytesIn.textContent, 'IN 50 B');
+  assert.equal(udpRow.bytesIn.textContent, 'IN 30 B');
+
+  tcpRow.removeButton.click();
+  udpRow.removeButton.click();
+  assert.deepEqual(removed, ['443:tcp', '443:udp']);
+
+  panel.render([filters[1]]);
+  assert.equal(panel.rows.has('443:tcp'), false);
+  assert.strictEqual(panel.rows.get('443:udp'), udpRow);
 });
 
 test('removing one persistent row preserves the remaining rows and order', () => {
@@ -626,21 +696,21 @@ test('removing one persistent row preserves the remaining rows and order', () =>
   panel.render([
     { port: 443, protocol: 'tcp' },
     { port: 53, protocol: 'udp' },
-    { port: 8080, protocol: 'both' }
+    { port: 8080, protocol: 'tcp' }
   ]);
-  const first = panel.rows.get(443).element;
-  const last = panel.rows.get(8080).element;
+  const first = panel.rows.get('443:tcp').element;
+  const last = panel.rows.get('8080:tcp').element;
 
   panel.render([
     { port: 443, protocol: 'tcp' },
-    { port: 8080, protocol: 'both' }
+    { port: 8080, protocol: 'tcp' }
   ]);
 
   assert.equal(panel.rows.has(53), false);
   assert.deepEqual(panel.panel.children, [first, last]);
 
   panel.render([
-    { port: 8080, protocol: 'both' },
+    { port: 8080, protocol: 'tcp' },
     { port: 443, protocol: 'tcp' }
   ]);
 
@@ -706,4 +776,7 @@ test('markup delegates statistics panel ownership to the controller', () => {
   assert.match(renderer, /className = 'filter-stats-row'/);
   assert.match(renderer, /className = 'filter-stats-panel'/);
   assert.match(renderer, /ensurePanel\(\)/);
+  assert.equal((markup.match(/value="tcp"/g) || []).length, 1);
+  assert.equal((markup.match(/value="udp"/g) || []).length, 1);
+  assert.doesNotMatch(markup, /TCP\s*\+\s*UDP/i);
 });

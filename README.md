@@ -6,9 +6,9 @@ TrafficMap passively observes a server's TCP and UDP traffic and displays it on 
 
 The Node.js process starts an HTTPS server and a WebSocket endpoint at `/ws`. Ordinary HTTPS requests receive `404`: `index.html`, `app.js`, `websocket-url.js`, and `styles.css` are separate static assets that must be published by a static web server. The frontend can be hosted at the domain root or in any subdirectory and connects directly to the agent port; no WebSocket reverse proxy or path rewriting is required.
 
-Capture continuously covers TCP and UDP on all ports. A dashboard initially displays all traffic and may add unique port filters for TCP, UDP, or both protocols. Filters belong to each WebSocket client and are applied by the agent before packets and snapshots are sent. Bytes represent the payload length reported by `tcpdump`, not the Ethernet/IP size. TCP ACK packets without payload are ignored. Direction is determined by comparing endpoints with the server's local addresses.
+Capture continuously covers TCP and UDP on all ports. A dashboard initially displays all traffic and may add filters identified by an exact port and protocol pair. TCP and UDP on the same port can be monitored independently; there is no combined filter option. Filters belong to each WebSocket client and are applied by the agent before packets and snapshots are sent. Bytes represent the payload length reported by `tcpdump`, not the Ethernet/IP size. TCP ACK packets without payload are ignored. Direction is determined by comparing endpoints with the server's local addresses.
 
-Each active filter displays cumulative inbound and outbound byte counters from the time it was added. Removing and later re-adding a filter resets its counters. Filters are not persisted across page reloads.
+Each active port/protocol pair displays independent cumulative inbound and outbound byte counters from the time it was added. Removing and later re-adding a pair resets only its counters. Filters are not persisted across page reloads.
 
 With active filters, dashboard inbound, outbound, and combined totals are calculated from their cumulative counters. Removing a filter removes its history immediately. Without filters, a separate all-traffic session total accumulates TCP and UDP packet events from zero; each transition back to all-traffic mode starts a new session.
 

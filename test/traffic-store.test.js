@@ -99,3 +99,24 @@ test('filtered snapshots contain only the union of active filters', async () => 
   const all = store.snapshot({}, [], '');
   assert.equal(all.totals.bytesIn, 7);
 });
+
+test('same-port TCP and UDP snapshot filters remain protocol-specific', async () => {
+  const store = new TrafficStore(config, { lookup: async () => geo });
+  await store.record('8.8.8.8', 'in', 10, 443, 'tcp');
+  await store.record('8.8.8.8', 'in', 20, 443, 'udp');
+  await flush();
+
+  const tcp = store.snapshot({}, [{ port: 443, protocol: 'tcp' }], '');
+  const udp = store.snapshot({}, [{ port: 443, protocol: 'udp' }], '');
+  const pairs = store.snapshot({}, [
+    { port: 443, protocol: 'tcp' },
+    { port: 443, protocol: 'udp' }
+  ], '');
+
+  assert.equal(tcp.totals.bytesIn, 10);
+  assert.equal(tcp.clients[0].protocol, 'tcp');
+  assert.equal(udp.totals.bytesIn, 20);
+  assert.equal(udp.clients[0].protocol, 'udp');
+  assert.equal(pairs.totals.bytesIn, 30);
+  assert.equal(pairs.clients.length, 2);
+});

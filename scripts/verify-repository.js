@@ -38,6 +38,15 @@ for (const [pattern, label] of [[/install\.sh/i, 'reference to install.sh'], [/s
 const readme = fs.existsSync(path.join(root, 'README.md')) ? fs.readFileSync(path.join(root, 'README.md'), 'utf8') : '';
 forbid(/systemd|daemon|systemctl|journalctl|\/opt\//i.test(readme), 'resident-process operational documentation is present');
 
+for (const name of ['index.html', 'app.js', 'filter-panel.js', 'README.md']) {
+  const filePath = path.join(root, name);
+  if (!fs.existsSync(filePath)) continue;
+  const content = fs.readFileSync(filePath, 'utf8');
+  forbid(/TCP\s*\+\s*UDP/i.test(content), `combined filter label found in ${name}`);
+  forbid(/protocol\s*===?\s*['"]both['"]/i.test(content), `combined filter protocol found in ${name}`);
+  forbid(/value\s*=\s*['"]both['"]/i.test(content), `combined filter option found in ${name}`);
+}
+
 const decodeTerms = (encodedTerms) => encodedTerms.map((value) => Buffer.from(value, 'base64').toString('utf8'));
 const knownItalianPhrases = decodeTerms([
   'TWVzc2FnZ2lvIFdlYlNvY2tldA==',

@@ -1,8 +1,15 @@
-export function removeFilterByPort(filters, port) {
+export function filterKey(port, protocol) {
+  return `${Number(port)}:${String(protocol).toLowerCase()}`;
+}
+
+export function removeFilter(filters, port, protocol) {
   const selectedPort = Number(port);
+  const selectedProtocol = String(protocol).toLowerCase();
 
   return filters.filter(
-    (filter) => filter.port !== selectedPort
+    (filter) =>
+      filter.port !== selectedPort ||
+      filter.protocol !== selectedProtocol
   );
 }
 
@@ -34,10 +41,7 @@ export function matchesSelectedFilters(filters, packet) {
   return !filters.length || filters.some(
     (filter) =>
       filter.port === Number(packet.localPort) &&
-      (
-        filter.protocol === 'both' ||
-        filter.protocol === packet.protocol
-      )
+      filter.protocol === packet.protocol
   );
 }
 

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-08-10
+
+### Changed
+
+- Identified every filter by its exact port and protocol pair across the interface, WebSocket state, snapshots, and agent counters.
+- Allowed independent TCP and UDP filters, rows, counters, and removal controls on the same port.
+- Limited filter protocols to TCP or UDP and removed the combined protocol option.
+
 ## [1.1.7] - 2026-08-09
 
 ### Fixed
@@ -63,7 +71,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Continuous UDP capture and deterministic IPv4/IPv6 UDP parsing alongside existing TCP support.
-- Per-dashboard port filters for TCP, UDP, or both protocols, with atomic WebSocket updates and agent-side filtering.
+- Per-dashboard TCP and UDP port filters with atomic WebSocket updates and agent-side filtering.
 - Cumulative inbound and outbound byte counters for each active filter.
 - Compact removable filter list with all-traffic mode when no filters are active.
 

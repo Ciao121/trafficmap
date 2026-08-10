@@ -8,7 +8,7 @@ import {
   createAllTrafficTotal,
   filterSelectionSignature,
   matchesSelectedFilters,
-  removeFilterByPort,
+  removeFilter,
   selectTrafficTotal,
   shouldApplyServerFilters,
   transitionAllTrafficTotal
@@ -2317,11 +2317,12 @@ function sendFilters() {
   sendJson(message);
 }
 
-function removeActiveFilter(port) {
+function removeActiveFilter(port, protocol) {
   const remainingFilters =
-    removeFilterByPort(
+    removeFilter(
       activeFilters,
-      port
+      port,
+      protocol
     );
 
   if (
@@ -2464,7 +2465,7 @@ function handleSocketMessage(rawData) {
       updateFilterTotals();
     }
 
-    const filter = activeFilters.find((item) => item.port === Number(message.localPort) && (item.protocol === 'both' || item.protocol === message.protocol));
+    const filter = activeFilters.find((item) => item.port === Number(message.localPort) && item.protocol === message.protocol);
     if (filter) {
       if (message.direction === 'out') filter.bytesOut += Number(message.bytes) || 0;
       else filter.bytesIn += Number(message.bytes) || 0;
@@ -2608,16 +2609,21 @@ ui.activityWindow
 
 function addFilter() {
   const port = Number(ui.filterPort.value);
+  const protocol = String(ui.filterProtocol.value).toLowerCase();
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     ui.filterError.textContent = 'Enter a port between 1 and 65535.';
     return;
   }
-  if (activeFilters.some((filter) => filter.port === port)) {
-    ui.filterError.textContent = `Port ${port} already has a filter.`;
+  if (!['tcp', 'udp'].includes(protocol)) {
+    ui.filterError.textContent = 'Select TCP or UDP.';
+    return;
+  }
+  if (activeFilters.some((filter) => filter.port === port && filter.protocol === protocol)) {
+    ui.filterError.textContent = `${port}/${protocol.toUpperCase()} already has a filter.`;
     return;
   }
 
-  activeFilters.push({ port, protocol: ui.filterProtocol.value, bytesIn: 0, bytesOut: 0 });
+  activeFilters.push({ port, protocol, bytesIn: 0, bytesOut: 0 });
   ui.filterPort.value = '';
   ui.filterError.textContent = '';
   renderFilters();
