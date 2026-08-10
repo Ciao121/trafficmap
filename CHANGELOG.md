@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-08-10
+
+### Fixed
+
+- Froze multi-IP popup membership, order, DOM nodes, and scroll position until the popup closes.
+- Made each multi-IP row open the standard single-IP details in the same Leaflet popup.
+
 ## [1.2.0] - 2026-08-10
 
 ### Changed

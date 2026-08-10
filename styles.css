@@ -683,6 +683,27 @@ input {
   padding: 8px 2px;
 }
 
+.group-client-selectable {
+  display: block;
+  width: 100%;
+
+  border: 0;
+
+  color: inherit;
+  background: none;
+
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.group-client-selectable:hover,
+.group-client-selectable:focus-visible {
+  background:
+    rgba(22, 119, 200, 0.08);
+  outline: 0;
+}
+
 .group-client + .group-client {
   border-top: 1px solid
     rgba(0, 0, 0, 0.09);

@@ -12,6 +12,8 @@ Each active port/protocol pair displays independent cumulative inbound and outbo
 
 With active filters, dashboard inbound, outbound, and combined totals are calculated from their cumulative counters. Removing a filter removes its history immediately. Without filters, a separate all-traffic session total accumulates TCP and UDP packet events from zero; each transition back to all-traffic mode starts a new session.
 
+Map points shared by multiple IP addresses open a stable list captured at click time. Real-time traffic continues updating the map without changing that open list or its scroll position. Selecting an IP replaces the list with that client's standard detail view; closing and reopening the point captures the current membership.
+
 ## Requirements
 
 - Linux for actual traffic capture;

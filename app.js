@@ -18,6 +18,11 @@ import {
   FilterPanel
 } from './filter-panel.js';
 
+import {
+  ClientPopupSession,
+  clientIdentity
+} from './client-popup-session.js';
+
 /* Must match dashboard.listenPort in config.json. */
 const WEBSOCKET_PORT = 3100;
 
@@ -651,14 +656,37 @@ function groupClientsByCoordinates(
   return groups;
 }
 
-function clientPopupRow(client) {
+function clientPopupRow(
+  client,
+  selectable = false
+) {
   const title =
     client.isViewer
       ? 'You'
       : client.ip;
 
+  const tag = selectable
+    ? 'button'
+    : 'article';
+
+  const attributes = selectable
+    ? `
+      type="button"
+      data-client-key="${escapeHtml(
+        clientIdentity(client)
+      )}"
+    `
+    : '';
+
   return `
-    <article class="group-client">
+    <${tag}
+      class="group-client${
+        selectable
+          ? ' group-client-selectable'
+          : ''
+      }"
+      ${attributes}
+    >
       <div class="group-client-heading">
         <strong class="${
           client.isViewer
@@ -719,7 +747,7 @@ function clientPopupRow(client) {
           </b>
         </span>
       </div>
-    </article>
+    </${tag}>
   `;
 }
 
@@ -808,10 +836,118 @@ function groupPopupHtml(group) {
 
     <div class="group-client-list">
       ${group.clients
-        .map(clientPopupRow)
+        .map(
+          (client) =>
+            clientPopupRow(
+              client,
+              count > 1
+            )
+        )
         .join('')}
     </div>
   `;
+}
+
+function singleClientGroup(client) {
+  return {
+    clients: [client],
+    hasViewer:
+      client.isViewer === true,
+    bytesIn:
+      Number(client.bytesIn) || 0,
+    bytesOut:
+      Number(client.bytesOut) || 0,
+    recentBytesIn:
+      Number(client.recentBytesIn) || 0,
+    recentBytesOut:
+      Number(client.recentBytesOut) || 0
+  };
+}
+
+function renderClientPopup(client) {
+  return groupPopupHtml(
+    singleClientGroup(client)
+  );
+}
+
+function handleClientPopupClick(
+  event,
+  entry
+) {
+  const row = event.target.closest(
+    '[data-client-key]'
+  );
+
+  if (!row) {
+    return;
+  }
+
+  const client = entry.popupSession.select(
+    row.dataset.clientKey
+  );
+
+  if (!client) {
+    return;
+  }
+
+  entry.marker.setPopupContent(
+    renderClientPopup(client)
+  );
+}
+
+function attachClientPopupEvents(entry) {
+  entry.marker.on(
+    'popupopen',
+    (event) => {
+      entry.popupSession.open(
+        entry.group.clients
+      );
+
+      const element =
+        event.popup.getElement();
+
+      if (!element) {
+        return;
+      }
+
+      entry.popupElement = element;
+      entry.popupClickHandler =
+        (clickEvent) =>
+          handleClientPopupClick(
+            clickEvent,
+            entry
+          );
+
+      element.addEventListener(
+        'click',
+        entry.popupClickHandler
+      );
+    }
+  );
+
+  entry.marker.on(
+    'popupclose',
+    () => {
+      if (
+        entry.popupElement &&
+        entry.popupClickHandler
+      ) {
+        entry.popupElement.removeEventListener(
+          'click',
+          entry.popupClickHandler
+        );
+      }
+
+      entry.popupElement = null;
+      entry.popupClickHandler = null;
+      entry.popupSession.close();
+
+      if (entry.pendingRemoval) {
+        map.removeLayer(entry.marker);
+        groupMarkers.delete(entry.key);
+      }
+    }
+  );
 }
 
 function groupDivIcon({
@@ -2038,8 +2174,17 @@ function updateGroupMarker(
       visualKey,
       hasViewer:
         group.hasViewer,
-      count
+      count,
+      key: group.key,
+      group,
+      popupSession:
+        new ClientPopupSession(),
+      popupElement: null,
+      popupClickHandler: null,
+      pendingRemoval: false
     };
+
+    attachClientPopupEvents(entry);
 
     groupMarkers.set(
       group.key,
@@ -2070,6 +2215,9 @@ function updateGroupMarker(
       group.longitude
     ]);
   }
+
+  entry.group = group;
+  entry.pendingRemoval = false;
 
   if (
     entry.visualKey !==
@@ -2105,9 +2253,11 @@ function updateGroupMarker(
       count;
   }
 
-  entry.marker.setPopupContent(
-    groupPopupHtml(group)
-  );
+  if (!entry.popupSession.isOpen()) {
+    entry.marker.setPopupContent(
+      groupPopupHtml(group)
+    );
+  }
 
   for (
     const client
@@ -2210,6 +2360,11 @@ function applySnapshot(snapshot) {
     if (
       presentGroups.has(key)
     ) {
+      continue;
+    }
+
+    if (entry.popupSession.isOpen()) {
+      entry.pendingRemoval = true;
       continue;
     }
 
