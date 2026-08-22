@@ -2,6 +2,12 @@
 
 TrafficMap passively observes a server's TCP and UDP traffic and displays it on a geographic dashboard. It counts payload bytes, packets, and recent activity per remote address; it is not a proxy and does not read application logs.
 
+## Project status
+
+TrafficMap is a personal side project, developed primarily as a technical exercise and an opportunity to experiment in spare time. It is not intended to be a complete product or a production-ready solution, and some features, edge cases, and deployment or security considerations may not be fully covered. Development continues when time and personal interest allow. The project is published because it may still be useful to other developers as an example, a starting point, or a source of ideas.
+
+A public demo is available at [spadacenta.com/trafficmap](https://spadacenta.com/trafficmap) for trying the interface directly. As a simple example, add a `443 / TCP` filter to observe the server's HTTPS traffic.
+
 ## Actual behavior
 
 The Node.js process starts an HTTPS server and a WebSocket endpoint at `/ws`. Ordinary HTTPS requests receive `404`: `index.html`, `app.js`, `websocket-url.js`, and `styles.css` are separate static assets that must be published by a static web server. The frontend can be hosted at the domain root or in any subdirectory and connects directly to the agent port; no WebSocket reverse proxy or path rewriting is required.
