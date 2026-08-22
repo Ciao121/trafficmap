@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { findInstallationSpecificReferences } from './repository-rules.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
@@ -33,8 +34,12 @@ forbid(!/^config\.json$/m.test(gitignore), 'config.json is not ignored');
 forbid(!/^data\/geoip-cache\.json$/m.test(gitignore), 'data/geoip-cache.json is not ignored');
 
 const textFiles = ['README.md', 'AGENTS.md', 'CHANGELOG.md', 'config.example.json', 'app.js', ...fs.readdirSync(path.join(root, 'src')).filter((x) => x.endsWith('.js')).map((x) => `src/${x}`)];
-const combined = textFiles.filter((x) => fs.existsSync(path.join(root, x))).map((x) => fs.readFileSync(path.join(root, x), 'utf8')).join('\n');
-for (const [pattern, label] of [[/install\.sh/i, 'reference to install.sh'], [/src\/server\.js/i, 'reference to src/server.js'], [/spadacenta|\/etc\/letsencrypt\/live\//i, 'installation-specific domain or TLS path']]) forbid(pattern.test(combined), label);
+const existingTextFiles = textFiles
+  .filter((x) => fs.existsSync(path.join(root, x)))
+  .map((x) => [x, fs.readFileSync(path.join(root, x), 'utf8')]);
+const combined = existingTextFiles.map(([, content]) => content).join('\n');
+for (const [pattern, label] of [[/install\.sh/i, 'reference to install.sh'], [/src\/server\.js/i, 'reference to src/server.js']]) forbid(pattern.test(combined), label);
+failures.push(...findInstallationSpecificReferences(existingTextFiles));
 const readme = fs.existsSync(path.join(root, 'README.md')) ? fs.readFileSync(path.join(root, 'README.md'), 'utf8') : '';
 forbid(/systemd|daemon|systemctl|journalctl|\/opt\//i.test(readme), 'resident-process operational documentation is present');
 
